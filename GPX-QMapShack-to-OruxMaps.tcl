@@ -1296,8 +1296,10 @@ proc convert_gpx_track {track} {
   # Set QMS track flags depending on collected BRouter track waypoints:
   # flag = 0	... Constraint points, in QMS always visible
   # flag = 8	... Support points, in QMS visible as dots when editing track
-  set data $result
-  set result ""
+  set i [string first "<trkpt" $result]
+  set head [string range $result 0 $i-1]
+  set data [string range $result $i end]
+  set result $head
   while {[regexp {(^.*?)(<trkpt.*?</trkpt>)(.*$)} $data {} head body tail]} {
     append result $head
     regsub {.*lon="(.*?)".*lat="(.*?)".*} $body {\1,\2} item
