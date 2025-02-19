@@ -1,4 +1,8 @@
 2025-02-19
 
+- Speed up adding track support waypoints
+
+2025-02-19
+
 - Initial version
 
