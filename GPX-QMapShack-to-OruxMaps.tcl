@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 if {![info exists tk_version]} {package require Tk}
 wm withdraw .
 
-set version "2025-02-19"
+set version "2025-02-20"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -1050,7 +1050,7 @@ proc brouter_start {} {
   fconfigure $fd -blocking 0 -buffering line -translation lf
   fileevent $fd readable "
     while {\[gets $fd line\] >= 0} {cputs \"\\\[SRV\\\] \$line\"}
-    after 50
+    after 100
     set brouter_ready 1
   "
 
@@ -1110,7 +1110,6 @@ proc run_convert_job {} {
 
 proc convert_gpx_file {file} {
   cputi "[mc m61 $file] ..."
-  update
   set start [clock milliseconds]
 
   # Read GPX file
@@ -1197,7 +1196,6 @@ proc convert_gpx_track {track} {
   regsub {^.*?<name>(.*?)</name>.*$} $trkhead {\1} trkname
 
   cputx "[mc m62 $trkname] ..."
-  update
 
   # Collect constraint track waypoints
   set trkpts [regexp -inline -all {<trkpt.*?</trkpt>} $track]
@@ -1229,11 +1227,12 @@ proc convert_gpx_track {track} {
     cputx [mc e16]
     return
   }
+  vwait brouter_ready
+  update
+
   set fd $result
   set data [read -nonewline $fd]
   close $fd
-  vwait brouter_ready
-  update
 
   if {![regexp {^\s*<.*} $data]} {
     if {$data == ""} {cputw [mc e17]} \
@@ -1253,63 +1252,69 @@ proc convert_gpx_track {track} {
   # Map BRouter waypoints to OM waypoints
   # Collect constraint track waypoints
   set lonlats {}
+  set tail $data
   set result ""
-  while {[regexp {(^.*?)(<wpt.*?</wpt>)(.*$)} $data {} head body tail]} {
+  while {1} {
+    set i [string first "<wpt" $tail]
+    set head [string range $tail 0 $i-1]
+    set tail [string range $tail $i end]
     append result $head
+    if {$i < 0} break
+    set i [string first "</wpt>" $tail]
+    set body [string range $tail 0 $i-1]
+    set tail [string range $tail $i end]
     if {[regexp {.*<om:ext type="ICON" subtype="0">([0-9]+?)</om:ext>.*} \
 	$body {} id]} {
       # OM direction waypoint
       lappend lonlats [regsub {.*lat="(.*?)".*lon="(.*?)".*} $body {\2,\1}]
       set name [get_icon_name $id]
       if {$name == ""} {set name Icon$id}
-      set string \n
+      set string "\n<sym>$name</sym>\n"
       if {$labels} {append string "<name>$name</name>\n"}
-      append string "<sym>$name</sym>\n"
       regsub {(<extensions>)} $body "$string\\1" body
     } elseif {[regsub {.*<type>(from)</type>.*} $body {38} id]} {
       # OM starting waypoint
       set name [get_icon_name $id]
       if {$name == ""} {set name Icon$id}
-      set string ""
+      set string "<sym>$name</sym>\n"
       if {$labels} {append string "<name>$name</name>\n"}
-      append string "<sym>$name</sym>\n"
       regsub {<name>.*</type>} $body $string body
     } elseif {[regsub {.*<type>(to)</type>.*} $body {15} id]} {
       # OM finishing waypoint
       set name [get_icon_name $id]
       if {$name == ""} {set name Icon$id}
-      set string ""
+      set string "<sym>$name</sym>\n"
       if {$labels} {append string "<name>$name</name>\n"}
-      append string "<sym>$name</sym>\n"
       regsub {<name>.*</type>} $body $string body
     } elseif {[regsub {.*<type>(via)</type>.*} $body {1} id]} {
       # OM support waypoint
-      set string ""
-      append string "<sym>Waypoint</sym>\n"
+      set string "<sym>Waypoint</sym>\n"
       regsub {<name>.*</type>} $body $string body
     }
     append result $body
-    set data $tail
   }
-  append result $data
+  append result $tail
 
   # Set QMS track flags depending on collected BRouter track waypoints:
   # flag = 0	... Constraint points, in QMS always visible
   # flag = 8	... Support points, in QMS visible as dots when editing track
-  set i [string first "<trkpt" $result]
-  set head [string range $result 0 $i-1]
-  set data [string range $result $i end]
-  set result $head
-  while {[regexp {(^.*?)(<trkpt.*?</trkpt>)(.*$)} $data {} head body tail]} {
+  set tail $result
+  set result ""
+   while {1} {
+    set i [string first "<trkpt" $tail]
+    set head [string range $tail 0 $i-1]
+    set tail [string range $tail $i end]
     append result $head
+    if {$i < 0} break
+    set i [string first "</trkpt>" $tail]
+    set body [string range $tail 0 $i-1]
+    set tail [string range $tail $i end]
     regsub {.*lon="(.*?)".*lat="(.*?)".*} $body {\1,\2} item
     set flag [expr {$item in $lonlats} ? 0 : 8]
-    regsub "(</trkpt>)" $body \
-	"<extensions><ql:flags>$flag</ql:flags></extensions>\\1" body
+    append body "<extensions><ql:flags>$flag</ql:flags></extensions>"
     append result $body
-    set data $tail
   }
-  append result $data
+  append result $tail
 
   # Replace BRouter generated track header by QMS track header
   regsub "<trk>.*?<trkseg>" $result $trkhead result
