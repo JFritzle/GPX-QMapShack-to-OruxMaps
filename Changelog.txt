@@ -1,3 +1,8 @@
+2025-02-20
+
+- Increased conversion speed significantly
+- Fixed GUI window flickering while waiting on BRouter's reply
+
 2025-02-19
 
 - Speed up adding track support waypoints
