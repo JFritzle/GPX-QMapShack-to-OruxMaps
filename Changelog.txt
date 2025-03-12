@@ -1,3 +1,11 @@
+2025-03-12
+
+- Fixed: Conversion of tracks with a very large number of track points failed
+  due to exceeding maximum command line length (32768 characters)
+  -> "curl" now reads BRouter's URL from configuration file instead from command line
+- BRouter is now running as separate thread improving BRouter and "curl" synchronization
+  -> Tracks with a very large number of track points are converted much, much faster
+
 2025-03-05
 
 - Fixed: Underline link to GitHub repository was missing
