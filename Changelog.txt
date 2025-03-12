@@ -5,6 +5,7 @@
   -> "curl" now reads BRouter's URL from configuration file instead from command line
 - BRouter is now running as separate thread improving BRouter and "curl" synchronization
   -> Tracks with a very large number of track points are converted much, much faster
+- Fixed: BRouter log output was out of chronological order
 
 2025-03-05
 
