@@ -1067,7 +1067,7 @@ proc brouter_start {} {
       while {\[gets $fd line\] >= 0} {puts $fdo \"\\\[SRV\\\] \$line\"}
       set ready 1
     "
-    vwait ready
+    vwait ready; # Wait until server is ready
   }
 
   namespace eval brouter {}
@@ -1248,11 +1248,11 @@ proc convert_gpx_track {track} {
     return
   }
 
+  update; # Force BRouter log output before reading BRouter reply
+
   set fd $result
   set data [read -nonewline $fd]
   close $fd
-
-  update
 
   if {![regexp {^\s*<.*} $data]} {
     if {$data == ""} {cputw [mc e17]} \
