@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 if {![info exists tk_version]} {package require Tk}
 wm withdraw .
 
-set version "2025-03-05"
+set version "2025-03-12"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -486,15 +486,18 @@ ctsend {
     }
   }
 
-  lassign [chan pipe] fdi fdo
-  thread::detach $fdo
-  fconfigure $fdi -blocking 0 -buffering line -translation lf
-  fileevent $fdi readable "
-    while {\[gets $fdi line\] >= 0} {write \"\$line\\n\"}
-  "
+  foreach i {1 2} {
+    lassign [chan pipe] fdi fdo
+    thread::detach $fdo
+    fconfigure $fdi -blocking 0 -buffering line -translation lf
+    fileevent $fdi readable "
+      while {\[gets $fdi line\] >= 0} {write \"\$line\\n\"}
+    "
+    set fdo$i $fdo
+  }
 }
 
-set fdo [ctsend "set fdo"]
+set fdo [ctsend "set fdo1"]
 thread::attach $fdo
 fconfigure $fdo -blocking 0 -buffering line -translation lf
 interp alias {} ::cputs {} ::puts $fdo
@@ -992,7 +995,13 @@ proc selection_ok {} {
   return 0
 }
 
-# BRouter server start
+# Start BRouter server as thread
+
+set btid [thread::create -joinable "
+    set fdo [ctsend "set fdo2"]
+    thread::wait
+  "]
+proc btsend {script} "return \[send $btid \$script\]"
 
 proc brouter_start {} {
 
@@ -1040,27 +1049,33 @@ proc brouter_start {} {
   cputi "[mc m54 $text] ..."
   cputs [get_shell_command $command]
 
-  set rc [catch {open "| $command 2>@1" r} result]
+  btsend "set command {$command}"
+  set rc [btsend {catch {open "| $command 2>@1" r} result}]
+
   if {$rc} {
+    set result [btsend "set result"]
     error_message [mc m55 "$text: $result"] return
     return
   }
 
-  set fd $result
-  fconfigure $fd -blocking 0 -buffering line -translation lf
-  fileevent $fd readable "
-    while {\[gets $fd line\] >= 0} {cputs \"\\\[SRV\\\] \$line\"}
-    after 100
-    set brouter_ready 1
-  "
+  btsend {
+    thread::attach $fdo
+    fconfigure $fdo -blocking 0 -buffering line -translation lf
+    set fd $result
+    fconfigure $fd -blocking 0 -buffering line -translation lf
+    fileevent $fd readable "
+      while {\[gets $fd line\] >= 0} {puts $fdo \"\\\[SRV\\\] \$line\"}
+      set ready 1
+    "
+    vwait ready
+  }
 
   namespace eval brouter {}
   namespace upvar brouter pid pid exe exe
-  set pid [pid $fd]
+  set pid [btsend {pid $fd}]
   set exe [file tail [lindex $command 0]]
 
   cputi [mc m51 $pid $exe]
-  vwait brouter_ready
 
 }
 
@@ -1195,7 +1210,6 @@ proc convert_gpx_track {track} {
   regsub {^.*?(<trk>.*?<trkseg>).*$} $track {\1} trkhead
   regsub {^.*?<name>(.*?)</name>.*$} $trkhead {\1} trkname
   regsub {^(?:<!\[CDATA\[)(.*?)(?:\]\]>)$} $trkname {\1} trkname
-  cputx "[mc m62 $trkname] ..."
 
   # Collect constraint track waypoints
   set trkpts [regexp -inline -all {<trkpt.*?</trkpt>} $track]
@@ -1206,7 +1220,8 @@ proc convert_gpx_track {track} {
     set item [regsub {.*lat="(.*?)".*lon="(.*?)".*} $item {\2,\1}]
     lappend lonlats $item
   }
-  set lonlats [join $lonlats |]
+  cputx "[mc m62 $trkname [llength $lonlats]] ..."
+  update idletasks
 
   # Let BRouter generate track from constraint track waypoints
   set url "http://127.0.0.1:$port/brouter"
@@ -1215,24 +1230,29 @@ proc convert_gpx_track {track} {
   append url &format=gpx
   append url &exportWaypoints=$waypoints
   append url &timode=$turnpoints
-  append url &lonlats=$lonlats
+  append url &lonlats=[join $lonlats |]
+
+  set cfg $::tmpdir/curl_config
+  set fd [open $cfg w]
+  puts $fd "url=$url"
+  close $fd
 
   set command $::curl
   lappend command -qsk
-  lappend command $url
+  lappend command -K $cfg
+  cputs [get_shell_command $command]
 
-  unset ::brouter_ready
   set rc [catch {open "| $command 2>@1" r} result]
   if {$rc} {
     cputx [mc e16]
     return
   }
-  vwait brouter_ready
-  update
 
   set fd $result
   set data [read -nonewline $fd]
   close $fd
+
+  update
 
   if {![regexp {^\s*<.*} $data]} {
     if {$data == ""} {cputw [mc e17]} \
@@ -1352,7 +1372,7 @@ while {1} {
 # Create server's temporary files folder
 
 append tmpdir /[format "GPX%8.8x" [pid]]
-file mkdir $tmpdir/tasks
+file mkdir $tmpdir
 
 # Start Brouter server
 

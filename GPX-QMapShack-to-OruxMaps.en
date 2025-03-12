@@ -61,7 +61,7 @@ m59	"%s not started.\nTCP port '%s' not available"
 
 m60	"GPX creator: '%s'"
 m61	"Convert GPX file  '%s'"
-m62	"Convert track '%s'"
+m62	"Convert track '%s' with %d track points"
 m63	"Convert waypoint '%s'"
 m64	"GPX file '%s' written"
 m65	"Consumed time: %.3f s"
