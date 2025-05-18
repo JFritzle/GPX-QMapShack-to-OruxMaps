@@ -72,3 +72,19 @@ Name=GPX-QMapShack-to-OruxMaps
 Exec=wish <path-to-script>/GPX-QMapShack-to-OruxMaps.tcl
 ```
 or associate file extension _.tcl_ to Tcl/Tk window shell’s binary _/usr/bin/wish_ and run script file by double-click file in file manager.
+
+### Example
+
+Part of track from *Notre dame de la Gorge* to *Les Chapieux* of trekking *Tour du Mont blanc*
+
+Screenshot 1 - QMapShack:  
+Track with waypoints as originally created with QMapShack and exported as GPX file
+![Image](https://github.com/user-attachments/assets/1fab7469-42a3-4aab-b1a1-8ff15ad56e19)
+
+Screenshot 2 - QMapShack:  
+Direction waypoints with waypoint labels added by GUI from exported GPX file and re-imported newly generated GPX file into QMapShack 
+![Image](https://github.com/user-attachments/assets/eac8418d-2ebf-4422-8eb4-49f563381c57)
+
+Screenshot 3 - OruxMaps:  
+Imported newly generated GPX file into OruxMaps
+![Image](https://github.com/user-attachments/assets/743a262f-a508-497a-9876-0c3d5ccdc8ab)

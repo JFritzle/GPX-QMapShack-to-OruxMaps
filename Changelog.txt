@@ -1,3 +1,11 @@
+2025-05-18
+
+- Fixed: Changed name of OruxMaps icon 1015 to "Keep Left"
+  in file GPX-QMapShack-to-OruxMaps.en
+- Fixed: Added missing OruxMaps icon 1008 "Continue"
+  to file GPX-QMapShack-to-OruxMaps.en
+- Added example screenshots
+
 2025-03-12
 
 - Fixed: Conversion of tracks with a very large number of track points failed
