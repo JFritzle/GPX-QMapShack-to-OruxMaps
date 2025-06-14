@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 if {![info exists tk_version]} {package require Tk}
 wm withdraw .
 
-set version "2025-03-12"
+set version "2025-06-14"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -341,6 +341,7 @@ set track.variant 0
 set turnpoint.export 6
 set waypoint.export 0
 set waypoint.labels 0
+set waypoint.numbers 0
 set gpx.folder [pwd]
 set gpx.prefix om
 
@@ -864,17 +865,29 @@ bind .variant_values <<ComboboxSelected>> {set track.variant [%W current]}
 
 checkbutton .turnpoints -text [mc r03] -variable turnpoint.export \
 	-offvalue 0 -onvalue 6
-pack .turnpoints -in .r -expand 1 -fill x
 
 # Labeling turn instructions?
 
 checkbutton .labels -text [mc r04] -variable waypoint.labels
-pack .labels -in .r -expand 1 -fill x
+
+# Numbering turn instructions?
+
+checkbutton .numbers -text [mc r05] -variable waypoint.numbers
 
 # Export track support waypoints?
 
-checkbutton .waypoints -text [mc r05] -variable waypoint.export
-pack .waypoints -in .r -expand 1 -fill x
+checkbutton .waypoints -text [mc r06] -variable waypoint.export
+
+foreach item {turnpoints labels numbers waypoints} {
+  pack .$item -in .r -expand 1 -fill x -pady {2 0}
+}
+
+proc labels_onoff {} {
+  .labels instate selected {.numbers state !disabled}
+  .labels instate !selected {.numbers state disabled}
+}
+.labels configure -command labels_onoff
+labels_onoff
 
 # Action buttons
 
@@ -953,7 +966,7 @@ proc save_script_settings {} {
 	window.geometry font.size \
 	console.show console.geometry console.font.size \
 	tcp.port track.profile track.variant \
-	turnpoint.export waypoint.export waypoint.labels \
+	turnpoint.export waypoint.export waypoint.labels waypoint.numbers \
 	gpx.folder gpx.prefix
 }
 
@@ -1204,7 +1217,7 @@ proc convert_gpx_waypoints {data} {
 proc convert_gpx_track {track} {
   upvar #0 tcp.port port track.profile profile track.variant variant \
 	waypoint.export waypoints turnpoint.export turnpoints \
-	waypoint.labels labels
+	waypoint.labels labels waypoint.numbers numbers
 
   # Get track name
   regsub {^.*?(<trk>.*?<trkseg>).*$} $track {\1} trkhead
@@ -1271,6 +1284,9 @@ proc convert_gpx_track {track} {
 
   # Map BRouter waypoints to OM waypoints
   # Collect constraint track waypoints
+  set n [regexp -all {<om:ext type="ICON" subtype="0">([0-9]+?)</om:ext>} $data]
+  set f "%0[string length $n]d"
+  set n 0
   set lonlats {}
   set tail $data
   set result ""
@@ -1290,6 +1306,7 @@ proc convert_gpx_track {track} {
       set name [get_icon_name $id]
       if {$name == ""} {set name Icon$id}
       set string "\n<sym>$name</sym>\n"
+      if {$numbers} {set name "[format $f [incr n]] $name"}
       if {$labels} {append string "<name>$name</name>\n"}
       regsub {(<extensions>)} $body "$string\\1" body
     } elseif {[regsub {.*<type>(from)</type>.*} $body {38} id]} {

@@ -1,3 +1,7 @@
+2025-06-14
+
+- Optionally numbering direction waypoints
+
 2025-05-18
 
 - Fixed: Changed name of OruxMaps icon 1015 to "Keep Left"
