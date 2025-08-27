@@ -1,3 +1,12 @@
+2025-08-27
+
+- Speed up console output
+- Console output window can now
+  be disabled during console output generation
+  and enabled again later to view cumulative output
+- Prevent script from becoming unresponsive 
+  when BRouter is runnning long time
+
 2025-06-14
 
 - Optionally numbering direction waypoints
