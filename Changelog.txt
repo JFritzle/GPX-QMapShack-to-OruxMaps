@@ -1,3 +1,13 @@
+2026-01-11
+
+- Extended scripts for macOS operating system:
+  Moved console into main thread (macOS GUI requirement!),
+  moved BRouter server and track conversion completely into own threads
+  Extended operating system dependent code to include macOS
+  Extended README to include macOS
+- Redesigned communication between threads and console
+- Added french translation (Help with translation errors is welcome!)
+
 2025-08-27
 
 - Speed up console output

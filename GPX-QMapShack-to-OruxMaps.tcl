@@ -21,10 +21,10 @@ if {[encoding system] != "utf-8"} {
    exit [source $argv0]
 }
 
-if {![info exists tk_version]} {package require Tk}
+package require Tk
 wm withdraw .
 
-set version "2025-08-27"
+set version "2026-01-11"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -42,7 +42,6 @@ foreach item {Thread msgcat tooltip} {
 
 # Procedure aliases
 
-interp alias {} ::send {} ::thread::send
 interp alias {} ::mc {} ::msgcat::mc
 interp alias {} ::messagebox {} ::tk::MessageBox
 interp alias {} ::tooltip {} ::tooltip::tooltip
@@ -121,10 +120,11 @@ Tooltip*Label.padY 2
 style theme use clam
 
 if {$tcl_version > 8.6} {
-  if {$tcl_platform(os) == "Windows NT"} \
-	{lassign {23 41 101 69 120} ry ul ll cy ht}
-  if {$tcl_platform(os) == "Linux"} \
-	{lassign { 3 21  81 49 100} ry ul ll cy ht}
+  switch $tcl_platform(os) {
+    "Windows NT" {lassign {23 41 101 69 120} ry ul ll cy ht}
+    "Linux"	 -
+    "Darwin"	 {lassign { 3 21  81 49 100} ry ul ll cy ht}
+  }
   set CheckOff "
 	<rect width='94' height='94' x='3' y='$ry'
 	style='fill:white;stroke-width:3;stroke:black'/>
@@ -157,8 +157,11 @@ if {$tcl_version > 8.6} {
   }
 }
 
-if {$tcl_platform(os) == "Windows NT"}	{lassign {1 1} yb yc}
-if {$tcl_platform(os) == "Linux"}	{lassign {0 2} yb yc}
+switch $tcl_platform(os) {
+  "Windows NT"	{lassign {1 1} yb yc}
+  "Linux"	-
+  "Darwin"	{lassign {0 2} yb yc}
+}
 foreach {item option value} {
 . background $colorBackground
 . bordercolor $colorBorder
@@ -288,8 +291,11 @@ set cmds {java_cmd curl_cmd}
 set list [concat $cmds ini_folder brouter_home]
 
 set drive [regsub {((^.:)|(^//[^/]*)||(?:))(?:.*$)} $cwd {\1}]
-if {$tcl_platform(os) == "Windows NT"}	{cd $env(SystemDrive)/}
-if {$tcl_platform(os) == "Linux"}	{cd /}
+switch $tcl_platform(os) {
+  "Windows NT"	{cd $env(SystemDrive)/}
+  "Linux"	-
+  "Darwin"	{cd /}
+}
 
 foreach item $list {
   if {![info exists $item]} continue
@@ -318,17 +324,30 @@ cd $cwd
 if {$tcl_platform(os) == "Windows NT"} {
   package require registry
   if {![info exists env(TMP)]} {set env(TMP) $env(HOME)]}
+  append env(TMP) \\[format "GPX%8.8x" [pid]]
   set tmpdir [file normalize $env(TMP)]
   set null NUL
   set nprocs $env(NUMBER_OF_PROCESSORS)
 } elseif {$tcl_platform(os) == "Linux"} {
   if {![info exists env(TMPDIR)]} {set env(TMPDIR) /tmp}
+  append env(TMPDIR) /[format "GPX%8.8x" [pid]]
   set tmpdir $env(TMPDIR)
   set null /dev/null
   set nprocs [exec /usr/bin/nproc]
+} elseif {$tcl_platform(os) == "Darwin"} {
+  if {![info exists env(TMPDIR)]} {set env(TMPDIR) /tmp}
+  append env(TMPDIR) /[format "TMS%8.8x" [pid]]
+  set tmpdir $env(TMPDIR)
+  set nprocs [exec sysctl -n hw.ncpu]
 } else {
   error_message [mc e03 $tcl_platform(os)] exit
 }
+
+# Create temporary files folder and delete on exit
+
+file mkdir $tmpdir
+rename ::exit ::quit
+proc exit {args} {catch {file delete -force $::tmpdir}; eval quit $args}
 
 # Restore saved settings from folder ini_folder
 
@@ -399,128 +418,103 @@ wm resizable . 0 0
 
 set console 0;			# Valid values: 0=hide, 1=show
 
-set ctid [thread::create -joinable "
-  package require Tk
-  package require tcl::chan::fifo2
-  wm withdraw .
-  wm title . \"$title - [mc l99]\"
-  set font_size ${console.font.size}
-  set geometry {${console.geometry}}
-  ttk::style theme use clam
-  ttk::style configure . -border $colorBorder -troughcolor $colorTrough
-  thread::wait
-  "]
+toplevel .console
+wm withdraw .console
+wm title .console "$title - [mc l99]"
+ttk::style configure .console -border $colorBorder -troughcolor $colorTrough
 
-proc ctsend {script} "return \[send $ctid \$script\]"
+set family [font configure TkFixedFont -family]
+foreach item {Consolas "Ubuntu Mono" "Noto Mono" "Liberation Mono" \
+	"SF Mono"} {
+  if {$item ni [font families]} continue
+  set family $item
+  break
+}
+font create console_font -family $family -size ${console.font.size}
 
-ctsend {
-  foreach item {Consolas "Ubuntu Mono" "Noto Mono" "Liberation Mono"
-  	[font configure TkFixedFont -family]} {
-    set family [lsearch -nocase -exact -inline [font families] $item]
-    if {$family != ""} break
-  }
-  font create font -family $family -size $font_size
-  text .txt -font font -wrap none -setgrid 1 -state disabled -undo 0 \
-	-width 120 -xscrollcommand {.sbx set} \
-	-height 24 -yscrollcommand {.sby set}
-  ttk::scrollbar .sbx -orient horizontal -command {.txt xview}
-  ttk::scrollbar .sby -orient vertical   -command {.txt yview}
-  grid .txt -row 1 -column 1 -sticky nswe
-  grid .sby -row 1 -column 2 -sticky ns
-  grid .sbx -row 2 -column 1 -sticky we
-  grid columnconfigure . 1 -weight 1
-  grid rowconfigure    . 1 -weight 1
+text .console.txt -font console_font -wrap none -setgrid 1 \
+	-state disabled -undo 0 -bg white \
+	-width 120 -xscrollcommand {.console.sbx set} \
+	-height 24 -yscrollcommand {.console.sby set}
+ttk::scrollbar .console.sbx -orient horizontal -command {.console.txt xview}
+ttk::scrollbar .console.sby -orient vertical   -command {.console.txt yview}
+grid .console.txt -row 1 -column 1 -sticky nswe
+grid .console.sby -row 1 -column 2 -sticky ns
+grid .console.sbx -row 2 -column 1 -sticky we
+grid columnconfigure .console 1 -weight 1
+grid rowconfigure    .console 1 -weight 1
 
-  bind .txt <Control-a> {%W tag add sel 1.0 end;break}
-  bind .txt <Control-c> {tk_textCopy %W;break}
-  bind . <Control-plus>  {incr_font_size +1}
-  bind . <Control-minus> {incr_font_size -1}
-  bind . <Control-KP_Add>      {incr_font_size +1}
-  bind . <Control-KP_Subtract> {incr_font_size -1}
+if {${console.geometry} != ""} {
+  lassign ${console.geometry} x y cols rows
+  if {$x > [expr [winfo vrootx .console]+[winfo vrootwidth .console]] ||
+      $x < [winfo vrootx .console]} {set x [winfo vrootx .console]}
+  wm positionfrom .console program
+  catch "wm geometry .console ${cols}x${rows}+$x+$y"
+}
 
-  bind . <Configure> {
-    if {"%W" != "."} continue
-    scan [wm geometry %W] "%%dx%%d+%%d+%%d" cols rows x y
-    set geometry "$x $y $cols $rows"
-  }
+bind .console.txt <Control-a> {%W tag add sel 1.0 end;break}
+bind .console.txt <Control-c> {tk_textCopy %W;break}
+bind .console <Control-plus>  {console_font_size_incr +1}
+bind .console <Control-minus> {console_font_size_incr -1}
+bind .console <Control-KP_Add>      {console_font_size_incr +1}
+bind .console <Control-KP_Subtract> {console_font_size_incr -1}
 
-  proc incr_font_size {incr} {
-    set px [.txt xview]
-    set py [.txt yview]
-    set size [font configure font -size]
-    incr size $incr
-    if {$size < 5 || $size > 20} return
-    font configure font -size $size
-    update idletasks
-    .txt xview moveto [lindex $px 0]
-    .txt yview moveto [lindex $py 0]
-  }
+bind .console <Configure> {
+  if {"%W" != ".console"} continue
+  scan [wm geometry %W] "%%dx%%d+%%d+%%d" cols rows x y
+  set console.geometry "$x $y $cols $rows"
+}
 
-  proc write {text} {
-    .txt configure -state normal
-    foreach item [split $text \n] {
-      if {[string index $item 0] == "\r"} {
+proc console_font_size_incr {incr} {
+  set px [.console.txt xview]
+  set py [.console.txt yview]
+  set size [font configure console_font -size]
+  incr size $incr
+  if {$size < 5 || $size > 20} return
+  font configure console_font -size $size
+  set ::console.font.size $size
+  update idletasks
+  .console.txt xview moveto [lindex $px 0]
+  .console.txt yview moveto [lindex $py 0]
+}
+
+proc console_write {text} {
+  .console.txt configure -state normal
+  foreach item [split $text \n] {
+    if {[string index $item 0] == "\r"} {
 	set item [string range $item 1 end]
-	.txt delete end-2l end-1l
-      }
-      if {[string index $item end] == "\b"} {
+	.console.txt delete end-2l end-1l
+    }
+    if {[string index $item end] == "\b"} {
 	set item [string range $item 0 end-1]
-      } else {
-	append item \n
-      }
-      .txt insert end $item
-    }
-    .txt configure -state disabled
-    if {[winfo ismapped .]} {.txt see end}
-  }
-
-  proc show_hide {show} {
-    if {$show} {
-      .txt see end
-      if {$::geometry == ""} {
-	wm deiconify .
-      } else {
-	lassign $::geometry x y cols rows
-	if {$x > [expr [winfo vrootx .]+[winfo vrootwidth .]] ||
-	    $x < [winfo vrootx .]} {set x [winfo vrootx .]}
-	wm positionfrom . program
-	wm geometry . ${cols}x${rows}+$x+$y
-	wm deiconify .
-	wm geometry . +$x+$y
-      }
     } else {
-      wm withdraw .
+	append item \n
     }
+    .console.txt insert end $item
   }
+  .console.txt configure -state disabled
+  if {[winfo ismapped .console]} {.console.txt see end}
+}
 
-  foreach i {1 2} {
-    lassign [::tcl::chan::fifo2] fdi fdo
-    thread::detach $fdo
-    fconfigure $fdi -blocking 0 -buffering full -buffersize 65536 -translation lf
-    fileevent $fdi readable "
-      set text {}
-      while {\[gets $fdi line\] >= 0} {lappend text \$line}
-      write \[join \$text \\n\]
-      "
-    set fdo$i $fdo
+proc console_show_hide {show} {
+  if {$show} {
+    .console.txt see end
+    wm attributes .console -topmost 1
+    wm deiconify .console
+    wm attributes .console -topmost 0
+  } else {
+    wm withdraw .console
   }
 }
 
-set fdo [ctsend "set fdo1"]
-thread::attach $fdo
-fconfigure $fdo -blocking 0 -buffering line -translation lf
-interp alias {} ::cputs {} ::puts $fdo
-
-if {$console == 1} {
-  set console.show 1
-  ctsend "show_hide 1"
-}
+if {$console == 1} {console_show_hide 1}
 
 # Write to console
 
+proc cputs {text} {console_write $text}
 proc cputw {text} {cputs "\[+++\] $text"}
 proc cputi {text} {cputs "\[===\] $text"}
-proc cputx {text} {cputs "\[   \] $text"}
+proc cputx {text} {cputs "\[···\] $text"}
 
 cputw [mc m51 [pid] [file tail [info nameofexecutable]]]
 cputw "Tcl/Tk version $tcl_patchLevel"
@@ -659,10 +653,11 @@ pack .title -expand 1 -fill x -pady {0 3}
 
 set github https://github.com/JFritzle/GPX-QMapShack-to-OruxMaps
 tooltip .title $github
-if {$tcl_platform(platform) == "windows"} \
-	{set exec "exec cmd.exe /C START {} $github"}
-if {$tcl_platform(os) == "Linux"} \
-	{set exec "exec nohup xdg-open $github >/dev/null"}
+switch $tcl_platform(os) {
+  "Windows NT"	{set exec "exec cmd.exe /C START {} $github"}
+  "Linux"	{set exec "exec nohup xdg-open $github >/dev/null"}
+  "Darwin"	{set exec "exec nohup open $github >/dev/null"}
+}
 bind .title <Button-1> "catch {$exec}"
 
 # Left menu column
@@ -928,26 +923,16 @@ proc busy_state {state} {
 
 # Show/hide output console window (show with saved geometry)
 
-checkbutton .output -text [mc c99] -width 32 \
-	-variable console.show -command show_hide_console
-pack .output -after .buttons -anchor n -expand 1 -fill x
+checkbutton .output -text [mc c99] \
+	-variable console.show -command {console_show_hide ${console.show}}
+pack .output -expand 1 -fill x
+console_show_hide ${console.show}
 
-proc show_hide_console {} {
-  update idletasks
-  ctsend "show_hide ${::console.show}"
-}
-show_hide_console
-
+wm protocol .console WM_DELETE_WINDOW {.output invoke}
+bind .console <Double-ButtonRelease-3> {.output invoke}
 # Map/Unmap events are generated by Windows only!
-set tid [thread::id]
-ctsend "
-  wm protocol . WM_DELETE_WINDOW \
-	{thread::send -async $tid {.output invoke}}
-  bind . <Unmap> {if {\"%W\" == \".\"} \
-	{thread::send -async $tid {set console.show 0}}}
-  bind . <Map>   {if {\"%W\" == \".\"} \
-	{thread::send -async $tid {set console.show 1}}}
-"
+bind .console <Unmap> {if {"%W" == ".console"} {set console.show 0}}
+bind .console <Map>   {if {"%W" == ".console"} {set console.show 1}}
 
 # --- End of main window right column
 
@@ -975,9 +960,6 @@ bind . <Control-KP_Subtract> {incr_font_size -1}
 proc save_script_settings {} {
   scan [wm geometry .] "%dx%d+%d+%d" width height x y
   set ::window.geometry "$x $y $width $height"
-  set ::font.size [font configure TkDefaultFont -size]
-  set ::console.geometry [ctsend "set geometry"]
-  set ::console.font.size [ctsend "font configure font -size"]
   save_settings $::ini_folder/$::settings \
 	window.geometry font.size \
 	console.show console.geometry console.font.size \
@@ -995,6 +977,7 @@ proc incr_font_size {incr} {
   if {$size < 5 || $size > 20} return
   set fonts {TkDefaultFont TkTextFont TkFixedFont TkTooltipFont title_font}
   foreach item $fonts {font configure $item -size $size}
+  set ::font.size $size
   set height [expr [winfo reqheight .title]-2]
 
   if {$::tcl_version > 8.6} {
@@ -1004,8 +987,11 @@ proc incr_font_size {incr} {
   } else {
     set size [expr round(($height+3)*0.6)]
     set padx [expr round($size*0.3)]
-    if {$::tcl_platform(os) == "Windows NT"} {set pady 0.1}
-    if {$::tcl_platform(os) == "Linux"} {set pady -0.1}
+    switch $::tcl_platform(os) {
+      "Windows NT" {set pady 0.1}
+      "Linux"	   -
+      "Darwin"	   {set pady -0.1}
+    }
     set pady [expr round($size*$pady)]
     set margin [list 0 $pady $padx 0]
     foreach item {TCheckbutton TRadiobutton} \
@@ -1051,6 +1037,14 @@ proc brouter_start {} {
   close $fd
   lappend command $::java_cmd @$::tmpdir/java_args
 
+  # Uncomment to write BRouter's arguments to console
+  #foreach item $params {cputs  $item}
+
+  # Uncomment to write BRouter's arguments to file
+  #set fd [open brouter.arguments w]
+  #foreach item $params {puts $fd $item}
+  #close $fd
+
   # Server's TCP port is currently in use?
 
   set text "BRouter Server \[SRV\]"
@@ -1073,27 +1067,28 @@ proc brouter_start {} {
   cputs [get_shell_command $command]
 
   set tid [thread::create -joinable "
-    set fdo [ctsend "set fdo2"]
+    package require Thread
+    set sid [thread::id]
     set command {$command}
     thread::wait
     "]
-  proc tsend {script} "return \[send $tid \$script\]"
 
-  set rc [tsend {catch {open "| $command 2>@1" r} result}]
+  proc tsend {script} "return \[thread::send $tid \$script\]"
+
+  set rc [tsend {catch {open "| $command 2>@1" r} fd}]
 
   if {$rc} {
-    set result [tsend "set result"]
+    set result [tsend "set fd"]
+    thread::release $tid
     error_message [mc m55 "$text: $result"] return
     return
   }
 
   tsend {
-    thread::attach $fdo
-    fconfigure $fdo -blocking 0 -buffering line -translation lf
-    set fd $result
+    proc cputs {text} "thread::send -async $sid \"console_write {\$text}\""
     fconfigure $fd -blocking 0 -buffering line -translation lf
     fileevent $fd readable "
-      while {\[gets $fd line\] >= 0} {puts $fdo \"\\\[SRV\\\] \$line\"}
+      while {\[gets $fd line\] >= 0} {cputs \"\\\[SRV\\\] \$line\"}
       set ready 1
     "
     vwait ready; # Wait until server is ready
@@ -1101,7 +1096,7 @@ proc brouter_start {} {
 
   namespace eval brouter {}
   namespace upvar brouter pid pid exe exe
-  set pid [tsend {pid $fd}]
+  set pid [tsend "pid \$fd"]
   set exe [file tail [lindex $command 0]]
 
   cputi [mc m51 $pid $exe]
@@ -1115,45 +1110,43 @@ proc brouter_stop {} {
   if {![namespace exists brouter]} return
 
   namespace upvar brouter pid pid exe exe
-  if {$::tcl_platform(os) == "Windows NT"} {catch {exec TASKKILL /F /PID $pid}}
-  if {$::tcl_platform(os) == "Linux"} {catch {exec kill -SIGTERM $pid}}
+  switch $::tcl_platform(os) {
+    "Windows NT" {catch {exec TASKKILL /F /PID $pid}}
+    "Linux"	 -
+    "Darwin"	 {catch {exec kill -SIGTERM $pid}}
+  }
   cputi [mc m52 $pid $exe]
   namespace delete brouter
 
 }
 
-# Get icon name from id
+# === Begin of worker thread
 
-proc get_icon_name {id} {
-  set i [lsearch -exact $::icons $id]
-  return [expr {($i < 0) ? "" : [lindex $::icons $i+1]}]
-}
+set wid [thread::create -joinable "
+  package require Thread
+  set sid [thread::id]
+  set tmpdir {$tmpdir}
+  set curl {$curl}
+  set icons {$icons}
+  thread::wait
+"]
 
-# Get icon id from name
+proc wsend {script} "return \[thread::send $wid \$script\]"
 
-proc get_icon_id {name} {
-  set i [lsearch -exact $::icons $name]
-  return [expr {($i < 0) ? "" : [lindex $::icons $i-1]}]
-}
+foreach item {e17 m60 m61 m62 m63 m64 m65 m66 m67} \
+	{wsend "set $item \"[mc $item]\""}
 
-# Convert all selected GPX files
+foreach item {cputi cputx get_shell_command} \
+	{wsend "proc $item {*}[lmap name {args body} {info $name $item}]"} 
 
-proc run_convert_job {} {
-  set ::cancel 0
-  set cwd [pwd]
-  cd ${::gpx.folder}
-  while {[llength $::gpx_files]} {
-    set ::gpx_files [lassign $::gpx_files file]
-    convert_gpx_file $file
-    if {$::cancel} break
-  }	
-  cd $cwd
-}
+wsend {
+
+proc cputs {text} "thread::send -async $sid \"console_write {\$text}\""
 
 # Convert GPX file QMapShack -> OruxMaps
 
 proc convert_gpx_file {file} {
-  cputi "[mc m61 $file] ..."
+  cputi "[format $::m61 $file] ..."
   set start [clock milliseconds]
 
   # Read GPX file
@@ -1163,7 +1156,7 @@ proc convert_gpx_file {file} {
 
   # Check for creator
   regexp {(^.*<gpx.*?creator=")(.*?)(".*$)} $data {} head body tail
-  cputx [mc m60 $body]
+  cputx [format $::m60 $body]
   # Replace creator
   set body "GPX-QMapShack-to-OruxMaps"
   set data $head$body$tail
@@ -1179,7 +1172,8 @@ proc convert_gpx_file {file} {
     append result [convert_gpx_waypoints $head]
     set data [convert_gpx_track $body]
     if {![string length $data]} {
-      cputi [mc m67]
+      cputi $::m67
+      thread::send $::sid "set wdone 1"
       return
     }
     append result $data
@@ -1198,8 +1192,10 @@ proc convert_gpx_file {file} {
   set stop [clock milliseconds]
   set time [expr ($stop-$start)/1000.]
 
-  cputx [mc m65 $time]
-  cputi [mc m64 $file]
+  cputx [format $::m65 $time]
+  cputi [format $::m64 $file]
+
+  thread::send $::sid "set wdone 1"
 }
 
 # Convert GPX waypoints QMapShack -> OruxMaps
@@ -1213,7 +1209,7 @@ proc convert_gpx_waypoints {data} {
     set id [get_icon_id $sym]
     if {$id != ""} {
       regsub {^.*<name>(.*?)</name>.*$} $body {\1} name
-      cputx "[mc m63 $name] ..."
+      cputx "[format $::m63 $name] ..."
       set string {<extensions><om:oruxmapsextensions xmlns:om="http://www.oruxmaps.com/oruxmapsextensions/1/0"><om:ext type="ICON" subtype="0">}
       append string $id
       append string {</om:ext></om:oruxmapsextensions></extensions>}
@@ -1245,12 +1241,11 @@ proc convert_gpx_track {track} {
   set lonlats {}
   foreach item $trkpts {
     if {[regexp {.*<ql:flags>8</ql:flags>.*} $item]} continue
-    set item [regsub {.*lon="(.*?)".*lat="(.*?)".*} $item {\1,\2}]
-    set item [regsub {.*lat="(.*?)".*lon="(.*?)".*} $item {\2,\1}]
-    lappend lonlats $item
+    set lon [regsub {.*lon="(.*?)".*} $item {\1}]
+    set lat [regsub {.*lat="(.*?)".*} $item {\1}]
+    lappend lonlats "$lon,$lat"
   }
-  cputx "[mc m62 $trkname [llength $lonlats]] ..."
-  update idletasks
+  cputx "[format $::m62 $trkname [llength $lonlats]] ..."
 
   # Let BRouter generate track from constraint track waypoints
   set url "http://127.0.0.1:$port/brouter"
@@ -1266,48 +1261,58 @@ proc convert_gpx_track {track} {
   puts $fd "url=$url"
   close $fd
 
+  # Uncomment to write BRouter's request to console
+  #cputs "url=$url"
+
+  # Uncomment to write BRouter's request to file
+  #set fd [open $trkname.brouter.request w]
+  #puts $fd "url=$url"
+  #close $fd
+
   set command $::curl
   lappend command -qsk
   lappend command -K $cfg
   cputs [get_shell_command $command]
 
-  set rc [catch {open "| $command 2>@1" r} result]
+  set rc [catch {open "| $command 2>@1" r} fd]
   if {$rc} {
-    cputx [mc e16]
+    cputx $::e16
+    cputx $fd
     return
   }
 
   # Prevent script from becoming unresponsive 
   # when BRouter is runnning long time
 
-  set ::curl_data ""
-  set fd $result
+  set ::curl_data {}
   fconfigure $fd -blocking 0 -buffering full -buffersize 65536
   fileevent $fd readable "
-    while {\[gets $fd line\] >= 0} {append ::curl_data \$line\\n}
+    while {\[gets $fd line\] >= 0} {lappend ::curl_data \"\$line\"}
     if {\[eof $fd\]} {close $fd; set curl_ready 1}
     "
   vwait curl_ready
-  unset ::curl_ready
+  set data [join $::curl_data \n]
+  unset ::curl_ready ::curl_data
 
-  upvar #0 curl_data data
+  after 100;	# Prioritize possible BRouter message(s).
+
   if {![regexp {^\s*<.*} $data]} {
-    if {$data == ""} {cputw [mc e17]} \
+    if {$data == ""} {cputw $::e17} \
     else {cputs "\[SRV\] $data"}
     return ""
   }
 
-  # Uncomment to write BRouter's GPX track into output console
+  # Uncomment to write BRouter's response to console
   #cputs $data
 
-  # Uncomment to write BRouter's GPX track into file
-  #set fd [open track.$trkname.gpx w]
+  # Uncomment to write BRouter's response to file
+  #set fd [open $trkname.brouter.response w]
   #puts $fd $data
   #close $fd
 
   # BRouter generated track statistics
   regsub {.*<!-- (.*?) -->.*} $data {\1} info
-  if {$info != ""} {cputx [mc m66 $info]}
+  if {$info != ""} {cputx [format $::m66 $info]}
 
   # Map BRouter waypoints to OM waypoints
   # Collect constraint track waypoints
@@ -1388,6 +1393,49 @@ proc convert_gpx_track {track} {
   return $result
 }
 
+# Get icon name from id
+
+proc get_icon_name {id} {
+  set i [lsearch -exact $::icons $id]
+  return [expr {($i < 0) ? "" : [lindex $::icons $i+1]}]
+}
+
+# Get icon id from name
+
+proc get_icon_id {name} {
+  set i [lsearch -exact $::icons $name]
+  return [expr {($i < 0) ? "" : [lindex $::icons $i-1]}]
+}
+
+}; # End of wsend
+
+# === End of worker thread
+
+# Convert all selected GPX files
+
+proc run_convert_job {} {
+  set ::cancel 0
+  set cwd [pwd]
+  cd ${::gpx.folder}
+  while {[llength $::gpx_files]} {
+    set ::gpx_files [lassign $::gpx_files file]
+    set script ""
+    foreach item {
+        gpx.prefix tcp.port track.profile track.variant \
+	waypoint.export turnpoint.export \
+	waypoint.labels waypoint.numbers} {
+	append script "set $item {[set ::$item]};"
+    }
+    append script "convert_gpx_file {$file}"
+    # Run worker thread and wait for finish
+    thread::send -async $::wid $script
+    vwait ::wdone
+    unset ::wdone
+    if {$::cancel} break
+  }	
+  cd $cwd
+}
+
 # Show main window (at saved position)
 
 wm positionfrom . program
@@ -1399,7 +1447,9 @@ if {[info exists window.geometry]} {
   wm geometry . +$x+$y
 }
 incr_font_size 0
+wm attributes . -topmost 1
 wm deiconify .
+wm attributes . -topmost 0
 
 # Wait for valid selection or finish
 
@@ -1412,11 +1462,6 @@ while {1} {
   if {[selection_ok]} break
   unset action
 }
-
-# Create server's temporary files folder
-
-append tmpdir /[format "GPX%8.8x" [pid]]
-file mkdir $tmpdir
 
 # Start Brouter server
 
@@ -1448,28 +1493,22 @@ unset action
 
 brouter_stop
 
-# Delete temporary files folder
-
-catch {file delete -force $tmpdir}
-
 # Unmap main toplevel window
 
 wm withdraw .
 
+# Wait until output console window was closed
+
+if {[winfo ismapped .console]} {
+  console_write "\n[mc m99]\b"
+  wm protocol .console WM_DELETE_WINDOW {}
+  bind .console <ButtonRelease-3> {destroy .console}
+  tkwait window .console
+}
+
 # Save settings to folder ini_folder
 
 save_script_settings
-
-# Wait until output console window was closed
-
-if {[ctsend "winfo ismapped ."]} {
-  ctsend "
-    write \"\n[mc m99]\b\"
-    wm protocol . WM_DELETE_WINDOW {}
-    bind . <ButtonRelease-3> {destroy .}
-    tkwait window .
-  "
-}
 
 # Done
 

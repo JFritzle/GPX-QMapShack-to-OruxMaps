@@ -27,37 +27,38 @@ Screenshot of graphical user interface:
 
 ### Installation
 
-1.	BRouter configurable OSM offline router  
+1.	**BRouter configurable OSM offline router**  
 Download and install latest BRouter version from [download section](https://github.com/abrensch/brouter/releases).  
 Download the required segment data files of the regions of your interest into BRouter's *segments* folder. See [README](https://github.com/abrensch/brouter?tab=readme-ov-file) where to download segments data files.  
 
-2.	Java runtime environment (JRE) or Java development kit (JDK)  
+2.	**Java runtime environment (JRE) or Java development kit (JDK)**  
+JRE version 17 or higher is required.  
 Each JDK contains JRE as subset.  
-Windows: If not yet installed, download and install JRE or JDK, e.g. from [Oracle](https://www.java.com) or [Adoptium](https://adoptium.net/de/temurin/releases).  
-Linux: If not yet installed, install JRE or JDK using Linux package manager. (Ubuntu: _apt install openjdk-<version\>-jre_ or _apt install openjdk-<version\>-jdk_ with required or newer _<version\>_)  
-Note: BRouter requires JRE version 17 or higher. 
+**Windows**: If not yet installed, download and install JRE or JDK, e.g. from [Oracle](https://www.java.com), [OpenLogic](https://www.openlogic.com/openjdk-downloads) or [Adoptium](https://adoptium.net/de/temurin/releases).  
+**Linux**: If not yet installed, install JRE or JDK using Linux package manager.  
+(Ubuntu: _apt install openjdk-<version\>-jre_ or _apt install openjdk-<version\>-jdk_ with required or newer _<version\>_)  
+**macOS**: If not yet installed, install JDK using _Homebrew_ package manager by _brew install java_.  
 
-3.	Tcl/Tk scripting language version 8.6 or higher binaries  
-Windows: Download and install latest stable version of Tcl/Tk, currently 9.0.  
-See https://wiki.tcl-lang.org/page/Binary+Distributions for available binary distributions. Recommended Windows binary distribution is from [teclab’s tcltk](https://gitlab.com/teclabat/tcltk/-/packages) Windows repository. Select most recent installation file _tcltk90-9.0.\<x.y>.Win10.nightly.\<date>.tgz_. Unpack zipped tar archive (file extension _.tgz_) into your Tcl/Tk installation folder, e.g. _%programfiles%/Tcl_.  
+3.	**Tcl/Tk scripting language version 8.6 or higher binaries**  
+**Windows**: Download and install latest stable version of Tcl/Tk, currently 9.0.  
+See https://wiki.tcl-lang.org/page/Binary+Distributions for available binary distributions. Recommended Windows binary distribution is from [teclab’s tcltk](https://gitlab.com/teclabat/tcltk/-/packages) Windows repository. Select most recent installation file _tcltk90-9.0.\<x.y>.Win10.nightly.\<date>.tgz_. Unpack zipped tar archive (file extension _.tgz_) into your Tcl/Tk installation folder, e.g. _%ProgramFiles%/Tcl_.  
 Note: [7-Zip](https://www.7-zip.org) file archiver/extractor is able to unpack _.tgz_ archives.   
-Linux: Install packages _tcl, tcllib, tcl-thread, tk_ and _tklib_ using Linux package manager.  
-(Ubuntu: _apt install tcl tcllib tcl-thread tk tklib_)
+**Linux**: Install packages _tcl, tcllib, tcl-thread, tk_ and _tklib_ using Linux package manager. 
+(Ubuntu: _apt install tcl tcllib tcl-thread tk tklib_)   
+**macOS**: If not yet installed, install _tcl-tk_ using _Homebrew_ package manager by _brew install tcl-tk_. Advanced users can either download additionally required Tcl/Tk package _tklib0.9_ from [sourceforge.net](https://sourceforge.net/projects/tcllib/files/tklib/0.9) and install into folder _/usr/local/Cellar/tcl-tk/*/lib/tklib0.9_ or simply copy _tklib0.9_ folder from an existing Windows or Linux installation of Tcl/Tk.  
 
-4.	GPX-QMapShack-to-OruxMaps graphical user interface script  
+4.	**GPX-QMapShack-to-OruxMaps graphical user interface script**  
 Download language-neutral script file _GPX-QMapShack-to-OruxMaps.tcl_, user settings file _GPX-QMapShack-to-OruxMaps.ini_ and at least one localized resource file.  
-Windows: Copy downloaded files into installation folder, e.g. into folder _%programfiles%/GPX Tools_.  
-Linux: Copy downloaded files into installation folder, e.g. into folder _~/GPX Tools_.  
-Edit _user-defined script variables settings section_ of user settings file _GPX-QMapShack-to-OruxMaps.ini_ to match files and folders of your local installation of BRouter and Java.  
-Important:  
-Always use character slash “/” as directory separator in script, for Microsoft Windows too!
+**Windows**: Copy downloaded files into installation folder, e.g. into folder _%programfiles%/GPX Tools_.  
+**Linux** and **macOS**: Copy downloaded files into installation folder, e.g. into folder _~/GPX Tools_.  
+**Note**: Edit _user-defined script variables settings section_ of user settings file _GPX-QMapShack-to-OruxMaps.ini_ to match files and folders of your local installation of BRouter and Java. Always use character slash “/” as directory separator in script, for Microsoft Windows too!
 
 ### Script file execution
 
-Windows:  
-Associate file extension _.tcl_ to Tcl/Tk window shell’s binary _wish.exe_. Right-click script file and open file’s properties window. Change data type _.tcl_ to be opened by _Wish application_ e.g. by executable _%programfiles%/Tcl/bin/wish.exe_. Once file extension has been associated, double-click script file to run.
+**Windows**:  
+Associate file extension _.tcl_ to Tcl/Tk window shell’s binary _wish.exe_. Right-click script file and open file’s properties window. Change data type _.tcl_ to be opened by _Wish application_ e.g. by executable _%programfiles%/Tcl/bin/wish.exe_. Once file extension has been associated, double-click script file to run.  
 
-Linux:  
+**Linux**:  
 Either run script file from command line by
 ```
 wish <path-to-script>/GPX-QMapShack-to-OruxMaps.tcl
@@ -71,11 +72,21 @@ Terminal=false
 Name=GPX-QMapShack-to-OruxMaps
 Exec=wish <path-to-script>/GPX-QMapShack-to-OruxMaps.tcl
 ```
-or associate file extension _.tcl_ to Tcl/Tk window shell’s binary _/usr/bin/wish_ and run script file by double-click file in file manager.
+or associate file extension _.tcl_ to Tcl/Tk window shell’s binary _/usr/bin/wish_ and run script file by double-click file in file manager.  
+
+**macOS**:  
+Either run script file from command line by
+```
+wish <path-to-script>/GPX-QMapShack-to-OruxMaps.tcl
+```
+
+or use _Automator -> Application -> Run Shell Script -> /usr/local/bin/wish \"$@\"_ to create an application for Tcl/Tk window shell’s binary _wish_, then associate all _.tcl_ files to this application and run script file by double-click file in file manager.
+
+Having _.tcl_ files associated to this application, a desktop starter from script file can be created by _Make Alias_ and dragging the alias and dropping it to desktop.  
 
 ### Example
 
-Part of track from *Notre dame de la Gorge* to *Les Chapieux* of trekking *Tour du Mont blanc*
+Part of track from *Notre Dame de la Gorge* to *Les Chapieux* of trekking *Tour du Mont Blanc*
 
 Screenshot 1 - QMapShack:  
 Track with waypoints as originally created with QMapShack and exported as GPX file  
