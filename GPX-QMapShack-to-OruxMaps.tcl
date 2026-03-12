@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 package require Tk
 wm withdraw .
 
-set version "2026-02-23"
+set version "2026-03-12"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -103,6 +103,7 @@ Dialog.msg.wrapLength ${dialog.wrapLength}
 Dialog.dtl.wrapLength ${dialog.wrapLength}
 Dialog.msg.font TkDefaultFont
 Dialog.dtl.font TkDefaultFont
+Entry.borderWidth 1
 Entry.highlightThickness 1
 Label.borderWidth 1
 Label.padX 0
@@ -231,6 +232,49 @@ image create bitmap ArrowDown -data {
   static char x_bits[] = {
   0x00,0xfe,0x00,0xfe,0xff,0xff,0xfe,0xfe,0x7c,0xfe,0x38,0xfe,0x10,0xfe
   };
+}
+
+# Recursively find children
+
+proc find_children {widget} {
+  set list [winfo children $widget]
+  foreach item $list {lappend list {*}[find_children $item]}
+  return $list
+}
+
+# Set "tk busy" state
+
+if {$tcl_platform(os) != "Darwin"} {
+  # Use built-in "tk busy" where applicable
+  interp alias {} ::tk_busy {} ::tk busy
+} else {
+  # Emulate "tk busy" where required
+  proc tk_busy {state widget args} {
+    set classes {TButton TCheckbutton TRadiobutton TCombobox \
+		 Entry Scale Listbox}
+    lappend list $widget {*}[find_children $widget]
+    global $widget.busy
+    switch $state {
+      "hold" {
+	array set $widget.busy {}
+	foreach item $list {
+	  if {[winfo class $item] in $classes} {
+	    set $widget.busy($item) [$item cget -state]
+	    $item configure -state disabled
+	  }
+	}
+      }
+      "forget" {
+	foreach item $list {
+	  if {[winfo class $item] in $classes} {
+	    set val [set $widget.busy($item)]
+	    $item configure -state $val
+	  }
+	}
+	array unset $widget.busy
+      }
+    }
+  }
 }
 
 # Try using system locale for script
@@ -922,13 +966,13 @@ focus .buttons.continue
 proc busy_state {state} {
   set busy {.l .r .buttons.continue}
   if {$state} {
-    foreach item $busy {tk busy hold $item}
+    foreach item $busy {tk_busy hold $item}
     .buttons.continue state pressed
     .buttons.cancel configure -text [mc b03] -command {set cancel 1}
   } else {
     .buttons.continue state !pressed
     .buttons.cancel configure -text [mc b02] -command {set action 0}
-    foreach item $busy {tk busy forget $item}
+    foreach item $busy {tk_busy forget $item}
   }
   update idletasks
 }
@@ -1176,6 +1220,7 @@ proc convert_gpx_file {file} {
   # Replace creator
   set body "GPX-QMapShack-to-OruxMaps"
   set data $head$body$tail
+  set result ""
 
   # Remvove some unnecessary QMS extensions
   regsub -all {<ql:history>.*?</ql:history>} $data {} data
@@ -1183,33 +1228,50 @@ proc convert_gpx_file {file} {
   regsub -all {<ql:bubble>.*?/>} $data {} data
 
   # Convert waypoints of GPX file separately
-  set result [convert_gpx_waypoints $data]
+  if {${::gpx.points}} {
+    set next $data
+    while {[regexp {^(.*?)(<wpt.*?</wpt>)(.*)$} $next {} head body tail]} {
+      set reply [convert_gpx_waypoint $body]
+      append result $reply
+      set next $tail
+    }
+  }
+  regsub -all {<wpt.*?</wpt>} $data {} data
 
   # Convert tracks of GPX file separately
-  set next $data
-  while {[regexp {^(.*?)(<trk>.*?</trk>)(.*)$} $next {} head body tail]} {
-    set reply [convert_gpx_track $body]
-    if {![string length $reply]} {
-      cputi $::m68
-      thread::send $::sid "set wdone 1"
-      return
+  if {${::gpx.tracks}} {
+    set next $data
+    while {[regexp {^(.*?)(<trk>.*?</trk>)(.*)$} $next {} head body tail]} {
+      set reply [convert_gpx_track $body]
+      if {![string length $reply]} {
+	cputi $::m68
+	thread::send $::sid "set wdone 1"
+	return
+      }
+      append result $reply
+      set next $tail
     }
-    append result $reply
-    set next $tail
   }
+  regsub -all {<trk>.*?</trk>} $data {} data
 
   # Convert routes of GPX file separately
-  set next $data
-  while {[regexp {^(.*?)(<rte>.*?</rte>)(.*)$} $next {} head body tail]} {
-    set reply [convert_gpx_route $body]
-    if {![string length $reply]} {
-      cputi $::m68
-      thread::send $::sid "set wdone 1"
-      return
+  if {${::gpx.routes}} {
+    set next $data
+    while {[regexp {^(.*?)(<rte>.*?</rte>)(.*)$} $next {} head body tail]} {
+      set reply [convert_gpx_route $body]
+      if {![string length $reply]} {
+	cputi $::m68
+	thread::send $::sid "set wdone 1"
+	return
+      }
+      append result $reply
+      set next $tail
     }
-    append result $reply
-    set next $tail
   }
+  regsub -all {<rte>.*?</rte>} $data {} data
+
+  # Embed conversion result
+  regsub {^(.*?)(</gpx>.*)$} $data \\1$result\\2 result
 
   # Remove empty lines
   regsub -line -all {^\s*$\n?} $result {} result
@@ -1229,29 +1291,21 @@ proc convert_gpx_file {file} {
   thread::send $::sid "set wdone 1"
 }
 
-# Convert GPX waypoints QMapShack -> OruxMaps
+# Convert GPX waypoint QMapShack -> OruxMaps
 
-proc convert_gpx_waypoints {data} {
-  # Map user defined QMS waypoints to OM waypoints
-  set result ""
-  while {[regexp {^(.*?)(<wpt.*?</wpt>)(.*)$} $data {} head body tail]} {
-    append result $head
-    regsub {^.*<sym>(.*?)</sym>.*$} $body {\1} sym
-    set id [lindex [array get ::icon_names $sym] 1]
-    if {$id != ""} {
-      regsub {^.*<name>(.*?)</name>.*$} $body {\1} name
-      cputx "[format $::m62 $name] ..."
-      set string {<extensions><om:oruxmapsextensions xmlns:om="http://www.oruxmaps.com/oruxmapsextensions/1/0"><om:ext type="ICON" subtype="0">}
-      append string $id
-      append string {</om:ext></om:oruxmapsextensions></extensions>}
-      regsub {(</wpt>)} $body "$string\\1" body
-    }
-    regsub {^.*<sym>(.*?)</sym>.*$} $body {\1} sym
-    set data $tail
+proc convert_gpx_waypoint {point} {
+  # Map user defined QMS waypoint to OM waypoint
+  regsub {^.*<sym>(.*?)</sym>.*$} $point {\1} sym
+  set id [lindex [array get ::icon_names $sym] 1]
+  if {$id != ""} {
+    regsub {^.*<name>(.*?)</name>.*$} $point {\1} name
+    cputx "[format $::m62 $name] ..."
+    set string {<extensions><om:oruxmapsextensions xmlns:om="http://www.oruxmaps.com/oruxmapsextensions/1/0"><om:ext type="ICON" subtype="0">}
+    append string $id
+    append string {</om:ext></om:oruxmapsextensions></extensions>}
+    regsub {(</wpt>)} $point "$string\\1" point
   }
-  append result $data
-
-  return $result
+  return $point
 }
 
 # Convert GPX track QMapShack -> OruxMaps
@@ -1287,7 +1341,8 @@ proc convert_gpx_track {track} {
 
 proc convert_gpx_route {route} {
   # Get route name
-  regsub {^.*?<name>(.*?)</name>.*$} $route {\1} rtename
+  regsub {^.*?<rte>(.*?)<rtept.*$} $route {\1} rtehead
+  regsub {^.*?<name>(.*?)</name>.*$} $rtehead {\1} rtename
   regsub {^(?:<!\[CDATA\[)(.*?)(?:\]\]>)$} $rtename {\1} rtename
 
   # Collect route points
@@ -1303,6 +1358,8 @@ proc convert_gpx_route {route} {
   set result [brouter_query $lonlats]
   if {$result == ""} {return ""}
 
+  # Replace BRouter generated track header by QMS route header
+  regsub "(<trk>).*?(<trkseg>)" $result \\1$rtehead\\2 result
   # Remove BRouter track encapsulation
   regsub {^.*creator.*?>(.*)</gpx>.*$} $result {\1} result
   return $result
@@ -1472,6 +1529,7 @@ proc run_convert_job {} {
     set script ""
     foreach item {
 	gpx.prefix tcp.port track.profile track.variant \
+        gpx.tracks gpx.routes gpx.points \
 	waypoint.export turnpoint.export \
 	waypoint.labels waypoint.numbers} {
 	append script "set $item {[set ::$item]};"
