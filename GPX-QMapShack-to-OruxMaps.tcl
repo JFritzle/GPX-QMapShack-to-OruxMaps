@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 package require Tk
 wm withdraw .
 
-set version "2026-03-12"
+set version "2026-04-22"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -109,6 +109,9 @@ Label.borderWidth 1
 Label.padX 0
 Label.padY 0
 Labelframe.borderWidth 0
+Listbox.exportSelection 0
+Listbox.relief sunken
+Listbox.takeFocus 1
 Scale.highlightThickness 1
 Scale.showValue 0
 Scale.takeFocus 1

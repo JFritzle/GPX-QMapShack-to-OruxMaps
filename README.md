@@ -41,11 +41,10 @@ Each JDK contains JRE as subset.
 
 3.	**Tcl/Tk scripting language version 8.6 or higher binaries**  
 **Windows**: Download and install latest stable version of Tcl/Tk, currently 9.0.  
-See https://wiki.tcl-lang.org/page/Binary+Distributions for available binary distributions. Recommended Windows binary distribution is from [teclab’s tcltk](https://gitlab.com/teclabat/tcltk/-/packages) Windows repository. Select most recent installation file _tcltk90-9.0.\<x.y>.Win10.nightly.\<date>.tgz_. Unpack zipped tar archive (file extension _.tgz_) into your Tcl/Tk installation folder, e.g. _%ProgramFiles%/Tcl_.  
-Note: [7-Zip](https://www.7-zip.org) file archiver/extractor is able to unpack _.tgz_ archives.   
-**Linux**: Install packages _tcl, tcllib, tcl-thread, tk_ and _tklib_ using Linux package manager. 
-(Ubuntu: _apt install tcl tcllib tcl-thread tk tklib_)   
-**macOS**: If not yet installed, install _tcl-tk_ using _Homebrew_ package manager by _brew install tcl-tk_. Advanced users can either download additionally required Tcl/Tk package _tklib0.9_ from [sourceforge.net](https://sourceforge.net/projects/tcllib/files/tklib/0.9) and install into folder _/usr/local/Cellar/tcl-tk/*/lib/tklib0.9_ or simply copy _tklib0.9_ folder from an existing Windows or Linux installation of Tcl/Tk.  
+See https://wiki.tcl-lang.org/page/Binary+Distributions for available binary distributions. A suitable Windows binary distribution is from [Magicsplat](https://sourceforge.net/projects/magicsplat/files/magicsplat-tcl/) repository. Select most recent installation file _tcl-9.0.3-installer-2.0.6-x64.msi_ or newer. Install into your Tcl/Tk installation folder, e.g. _%ProgramFiles%/Tcl_.  
+**Linux**: Install packages _tcl, tcllib, tcl-thread, tk_, _tklib_, _x11-utils_  and _wmctrl_ using Linux package manager. 
+(Ubuntu: _apt install tcl tcllib tcl-thread tk tklib_ _x11-utils_ _wmctrl_)   
+**macOS**: If not yet installed, install _tcl-tk_ using _Homebrew_ package manager by _brew install tcl-tk_. Unfortunately, _tklib_ containing required package _tooltip_ is not part of _tcl-tk_. Download _tklib0.9_ from [sourceforge.net](https://sourceforge.net/projects/tcllib/files/tklib/0.9) and install into folder _\<root>/Cellar/tcl-tk/\<version>/lib/tklib0.9_.  
 
 4.	**GPX-QMapShack-to-OruxMaps graphical user interface script**  
 Download language-neutral script file _GPX-QMapShack-to-OruxMaps.tcl_, user settings file _GPX-QMapShack-to-OruxMaps.ini_ and at least one localized resource file.  
