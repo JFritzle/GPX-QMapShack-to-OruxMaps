@@ -30,7 +30,7 @@ e16	"Program 'curl' ended abnormally"
 e17	"BRouter error"
 e20	"No GPX file selected"
 
-l01	"BRouter configuration"
+l01	"Configuration"
 l02	"Home folder"
 l03	"BRouter server"
 l04	"Segments folder"

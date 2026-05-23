@@ -30,7 +30,7 @@ e16	"Le programme «curl» s'est terminé anormalement"
 e17	"Erreur BRouter"
 e20	"Aucun fichier GPX sélectionné"
 
-l01	"Configuration du BRouter"
+l01	"Configuration"
 l02	"Dossier personnel"
 l03	"Serveur BRouter"
 l04	"Dossier «Segments»"

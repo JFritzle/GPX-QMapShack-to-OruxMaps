@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 package require Tk
 wm withdraw .
 
-set version "2026-04-22"
+set version "2026-05-23"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -691,77 +691,87 @@ set curl_version [split $string .]
 set curl_version [expr 1000*[lindex $curl_version 0]+[lindex $curl_version 1]]
 if {$curl_version < 7075} {error_message [mc e07 curl $string 7.75.0] exit}
 
+# Hyperlink to home page
+
+font create hyperfont {*}[font configure TkDefaultFont] -underline 1
+proc hyperlink {widget url} {
+  $widget configure -font hyperfont -fg blue
+  tooltip $widget $url
+  switch $::tcl_platform(os) {
+    "Windows NT" {set exec "exec cmd.exe /C START {} $url"}
+    "Linux"	 {set exec "exec nohup xdg-open $url >/dev/null"}
+    "Darwin"	 {set exec "exec nohup open $url >/dev/null"}
+  }
+  bind $widget <Button-1> "catch {$exec}"
+}
+
 # --- Begin of main window left column
 
 # Title
 
-font create title_font {*}[font configure TkDefaultFont] \
-	-underline 1 -weight bold
-label .title -text $title -font title_font -fg blue
-pack .title -expand 1 -fill x -pady {0 3}
-
-set github https://github.com/JFritzle/GPX-QMapShack-to-OruxMaps
-tooltip .title $github
-switch $tcl_platform(os) {
-  "Windows NT"	{set exec "exec cmd.exe /C START {} $github"}
-  "Linux"	{set exec "exec nohup xdg-open $github >/dev/null"}
-  "Darwin"	{set exec "exec nohup open $github >/dev/null"}
-}
-bind .title <Button-1> "catch {$exec}"
+label .title -text $title
+pack .title -pady {0 3}
+hyperlink .title https://github.com/JFritzle/GPX-QMapShack-to-OruxMaps
 
 # Left menu column
 
 frame .l
 pack .l -side left -anchor nw
 
+# BRouter title
+
+label .server_title -text "BRouter"
+pack .server_title -in .l
+hyperlink .server_title https://github.com/abrensch/brouter
+
 # BRouter configuration
 
-label .server_config -text [mc l01]
-pack .server_config -in .l -expand 1 -fill x -pady 1
+label .server_config -text [mc l01]: -anchor w
+pack .server_config -in .l -fill x
 
 # BRouter server home folder
 
-labelframe .server_home -labelanchor nw -text [mc l02]
-pack .server_home -in .l -expand 1 -fill x -pady 1
+labelframe .server_home -text [mc l02]
+pack .server_home -in .l -fill x -pady 1
 entry .server_home_value -textvariable brouter_home \
 	-state readonly -takefocus 0 -highlightthickness 0
-pack .server_home_value -in .server_home -expand 1 -fill x
+pack .server_home_value -in .server_home -fill x
 
 # BRouter server version jar archive
 
-labelframe .brouter_jar -labelanchor nw -text "[mc l03]: $server_string"
-pack .brouter_jar -in .l -expand 1 -fill x -pady 1
+labelframe .brouter_jar -text "[mc l03]: $server_string"
+pack .brouter_jar -in .l -fill x -pady 1
 entry .brouter_jar_value -textvariable brouter_jar \
 	-state readonly -takefocus 0 -highlightthickness 0
 tooltip .brouter_jar_value "Default: brouter.jar"
-pack .brouter_jar_value -in .brouter_jar -expand 1 -fill x
+pack .brouter_jar_value -in .brouter_jar -fill x
 
 # BRouter segments folder
 
-labelframe .segments_folder -labelanchor nw -text [mc l04]
-pack .segments_folder -in .l -expand 1 -fill x -pady 1
+labelframe .segments_folder -text [mc l04]
+pack .segments_folder -in .l -fill x -pady 1
 entry .segments_folder_value -textvariable segments_folder \
 	-state readonly -takefocus 0 -highlightthickness 0
 tooltip .segments_folder_value "Default: segments4"
-pack .segments_folder_value -in .segments_folder -expand 1 -fill x
+pack .segments_folder_value -in .segments_folder -fill x
 
 # BRouter profiles folder
 
-labelframe .profiles_folder -labelanchor nw -text [mc l05]
-pack .profiles_folder -in .l -expand 1 -fill x -pady 1
+labelframe .profiles_folder -text [mc l05]
+pack .profiles_folder -in .l -fill x -pady 1
 entry .profiles_folder_value -textvariable profiles_folder \
 	-state readonly -takefocus 0 -highlightthickness 0
 tooltip .profiles_folder_value "Default: profiles2"
-pack .profiles_folder_value -in .profiles_folder -expand 1 -fill x
+pack .profiles_folder_value -in .profiles_folder -fill x
 
 # BRouter custom profiles folder
 
-labelframe .customs_folder -labelanchor nw -text [mc l06]
-pack .customs_folder -in .l -expand 1 -fill x -pady 1
+labelframe .customs_folder -text [mc l06]
+pack .customs_folder -in .l -fill x -pady 1
 entry .customs_folder_value -textvariable customs_folder \
 	-state readonly -takefocus 0 -highlightthickness 0
 tooltip .customs_folder_value "Default: customprofiles"
-pack .customs_folder_value -in .customs_folder -expand 1 -fill x
+pack .customs_folder_value -in .customs_folder -fill x
 
 # BRouter TCP port number
 
@@ -769,9 +779,9 @@ labelframe .tcp_port -labelanchor w -text [mc l07]
 entry .tcp_port_value -textvariable tcp.port \
 	-width 6 -justify center
 tooltip .tcp_port_value "1024 ≤ TCP-Port ≤ 65535"
-pack .tcp_port -in .l -expand 1 -fill x -pady 1
+pack .tcp_port -in .l -fill x -pady 1
 pack .tcp_port_value -in .tcp_port \
-	-side right -anchor e -expand 1 -padx {3 0}
+	-side right -padx {3 0}
 
 # Validate TCP port number
 
@@ -799,15 +809,14 @@ pack .tcp_port_value -in .tcp_port \
 # Separator
 
 frame .sep -height 2 -bd 2 -relief sunken
-pack .sep -in .l -expand 1 -fill x -pady 5
+pack .sep -in .l -fill x -pady 5
 
 # Java runtime version
 
 labelframe .jre_version -labelanchor w -text [mc l10]:
-pack .jre_version -in .l -expand 1 -fill x -pady 1
-label .jre_version_value -anchor e -textvariable java_string
-pack .jre_version_value -in .jre_version \
-	-side right -anchor e -expand 1
+pack .jre_version -in .l -fill x -pady 1
+label .jre_version_value -textvariable java_string
+pack .jre_version_value -in .jre_version -side right -padx {3 0}
 
 # Filler down to bottom left
 
@@ -830,8 +839,8 @@ pack .r -anchor nw -fill x
 
 # Select GPX input files
 
-labelframe .gpx_files -labelanchor nw -text [mc r10]:
-pack .gpx_files -in .r -fill x -expand 1 -pady 1
+labelframe .gpx_files -text [mc r10]:
+pack .gpx_files -in .r -fill x -pady 1
 set gpx_files {}
 listbox .gpx_files_list -selectmode browse -activestyle none \
 	-height 3 -listvariable gpx_files -state disabled
@@ -855,9 +864,9 @@ proc choose_gpx_files {} {
 labelframe .gpx_prefix -labelanchor w -text [mc r12]:
 entry .gpx_prefix_value -textvariable gpx.prefix \
 	-width 8 -justify left
-pack .gpx_prefix -in .r -expand 1 -fill x -pady 1
+pack .gpx_prefix -in .r -fill x -pady 1
 pack .gpx_prefix_value -in .gpx_prefix \
-	-side right -anchor e -expand 1 -padx {3 0}
+	-side right -padx {3 0}
 
 # Validate file prefix for valid filename characters
 
@@ -887,7 +896,7 @@ checkbutton .gpx_routes -text [mc r16] -variable gpx.routes
 checkbutton .gpx_points -text [mc r17] -variable gpx.points
 
 foreach item {tracks routes points} {
-  pack .gpx_$item -in .r -expand 1 -fill x -pady {2 0}
+  pack .gpx_$item -in .r -fill x -pady {2 0}
 }
 
 # Track profile
@@ -901,13 +910,13 @@ foreach item $list \
 	{set width [expr max([font measure TkTextFont $item],$width)]}
 set width [expr $width/[font measure TkTextFont "0"]+1]
 
-labelframe .profile -labelanchor nw -text [mc r01]:
-pack .profile -in .r -expand 1 -fill x -pady 1
+labelframe .profile -text [mc r01]:
+pack .profile -in .r -fill x -pady 1
 combobox .profile_values -width $width \
 	-validate key -validatecommand {return 0} \
 	-textvariable track.profile -values $list
 if {[.profile_values current] < 0} {.profile_values current 0}
-pack .profile_values -in .profile -expand 1 -fill x
+pack .profile_values -in .profile -fill x
 
 # Track variant
 
@@ -919,7 +928,7 @@ foreach item $list \
 set width [expr $width/[font measure TkTextFont "0"]+1]
 
 labelframe .variant -labelanchor w -text [mc r02]:
-pack .variant -in .r -expand 1 -fill x -pady 1
+pack .variant -in .r -fill x -pady 1
 combobox .variant_values -width $width \
 	-validate key -validatecommand {return 0} \
 	-values $list
@@ -946,7 +955,7 @@ checkbutton .numbers -text [mc r05] -variable waypoint.numbers
 checkbutton .waypoints -text [mc r06] -variable waypoint.export
 
 foreach item {turnpoints labels numbers waypoints} {
-  pack .$item -in .r -expand 1 -fill x -pady {2 0}
+  pack .$item -in .r -fill x -pady {2 0}
 }
 
 proc labels_onoff {} {
@@ -962,7 +971,7 @@ frame .buttons
 button .buttons.continue -text [mc b01] -width 12 -command {set action 1}
 button .buttons.cancel -text [mc b02] -width 12 -command {set action 0}
 pack .buttons.continue .buttons.cancel -side left
-pack .buttons -after .r -anchor n -pady 5
+pack .buttons -after .r -pady 5
 
 focus .buttons.continue
 
@@ -984,7 +993,7 @@ proc busy_state {state} {
 
 checkbutton .output -text [mc c99] \
 	-variable console.show -command {console_show_hide ${console.show}}
-pack .output -expand 1 -fill x
+pack .output -fill x
 console_show_hide ${console.show}
 
 wm protocol .konsole WM_DELETE_WINDOW {.output invoke}
@@ -1034,8 +1043,9 @@ proc incr_font_size {incr} {
   if {$size < 0} {set size [expr round(-$size/[tk scaling])]}
   incr size $incr
   if {$size < 5 || $size > 20} return
-  set fonts {TkDefaultFont TkTextFont TkFixedFont TkTooltipFont title_font}
+  set fonts {TkDefaultFont TkTextFont TkFixedFont TkTooltipFont}
   foreach item $fonts {font configure $item -size $size}
+  font configure hyperfont -size [expr 1+$size]
   set ::font.size $size
   set height [expr [winfo reqheight .title]-2]
 
@@ -1217,15 +1227,21 @@ proc convert_gpx_file {file} {
   set data [read -nonewline $fd]
   close $fd
 
-  # Check for creator
-  regexp {(^.*<gpx.*?creator=")(.*?)(".*$)} $data {} head body tail
-  cputx [format $::m60 $body]
+  regexp {(^.*<gpx )(.*?)(>.*$)} $data {} head body tail
+  # Add missing "ql" gpx xml extension namespace
+  if {[string first "xmlns:ql" $body] < 0} {
+    append body " xmlns:ql=\"http://www.qlandkarte.org/xmlschemas/v1.1\""
+  }
   # Replace creator
-  set body "GPX-QMapShack-to-OruxMaps"
+  if {[regexp -indices {^.*?creator="(.*?)".*$} $body {} range]} {
+    lassign $range from to
+    cputx [format $::m60 [string range $body $from $to]]
+    set body [string replace $body $from $to "GPX-QMapShack-to-OruxMaps"]
+  }
   set data $head$body$tail
   set result ""
 
-  # Remvove some unnecessary QMS extensions
+  # Remove some unnecessary QMS extensions
   regsub -all {<ql:history>.*?</ql:history>} $data {} data
   regsub -all {<ql:key>.*?</ql:key>} $data {} data
   regsub -all {<ql:bubble>.*?/>} $data {} data

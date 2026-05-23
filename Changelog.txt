@@ -1,3 +1,10 @@
+2026-05-23
+
+- Fixed: Add potentially missing XML namespaces
+  preventing from successfully read by OruxMaps
+- Minor script optimizations
+- Added hyperlinks to BRouter's home page
+
 2026-04-22
 
 - Update Tcl/Tk download link in README's section
