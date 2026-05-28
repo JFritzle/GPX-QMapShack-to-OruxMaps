@@ -1,3 +1,7 @@
+2026-05-28
+
+- Fixed: GPX invalid if "<desc>...</desc>" contains HTML 
+
 2026-05-23
 
 - Fixed: Add potentially missing XML namespaces

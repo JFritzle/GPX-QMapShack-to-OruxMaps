@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 package require Tk
 wm withdraw .
 
-set version "2026-05-23"
+set version "2026-05-28"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -1290,7 +1290,8 @@ proc convert_gpx_file {file} {
   regsub -all {<rte>.*?</rte>} $data {} data
 
   # Embed conversion result
-  regsub {^(.*?)(</gpx>.*)$} $data \\1$result\\2 result
+  regexp {^(.*?)(</gpx>.*)$} $data {} head tail
+  set result $head$result$tail
 
   # Remove empty lines
   regsub -line -all {^\s*$\n?} $result {} result
