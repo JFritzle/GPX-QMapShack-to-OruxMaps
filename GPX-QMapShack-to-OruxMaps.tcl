@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 package require Tk
 wm withdraw .
 
-set version "2026-05-28"
+set version "2026-06-04"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -848,6 +848,20 @@ button .gpx_files_button -image ArrowDown -command choose_gpx_files
 pack .gpx_files_button -in .gpx_files -side right -fill y -pady 1
 pack .gpx_files_list -in .gpx_files -side left -fill x -expand 1
 
+# Enable drag-n-drop input files
+# Requires pacalage tkdnd
+if {![catch "package require tkdnd"]} {
+  tkdnd::drop_target register .gpx_files_list DND_Files
+  bind .gpx_files_list <<Drop>> {
+    foreach file %D {
+      if {![file isfile $file]} continue
+      if {[string tolower [file extension $file]] != ".gpx"} continue
+      lappend ::gpx_files $file
+    }
+    return %A
+  }
+}
+
 proc choose_gpx_files {} {
   set types [list [list [mc r11] .gpx]]
   set files [tk_getOpenFile -parent . -multiple 1 \
@@ -1219,6 +1233,7 @@ lmap {id name} $icons {
 # Convert GPX file QMapShack -> OruxMaps
 
 proc convert_gpx_file {file} {
+  set file [file normalize $file]
   cputi "[format $::m61 $file] ..."
   set start [clock milliseconds]
 
@@ -1230,7 +1245,11 @@ proc convert_gpx_file {file} {
   regexp {(^.*<gpx )(.*?)(>.*$)} $data {} head body tail
   # Add missing "ql" gpx xml extension namespace
   if {[string first "xmlns:ql" $body] < 0} {
-    append body " xmlns:ql=\"http://www.qlandkarte.org/xmlschemas/v1.1\""
+    append body { xmlns:ql="http://www.qlandkarte.org/xmlschemas/v1.1"}
+  }
+  # Add missing "om" gpx xml extension namespace
+  if {[string first "xmlns:om" $body] < 0} {
+    append body { xmlns:om="http://www.oruxmaps.com/oruxmapsextensions/1/0"}
   }
   # Replace creator
   if {[regexp -indices {^.*?creator="(.*?)".*$} $body {} range]} {
@@ -1239,25 +1258,26 @@ proc convert_gpx_file {file} {
     set body [string replace $body $from $to "GPX-QMapShack-to-OruxMaps"]
   }
   set data $head$body$tail
-  set result ""
 
   # Remove some unnecessary QMS extensions
   regsub -all {<ql:history>.*?</ql:history>} $data {} data
   regsub -all {<ql:key>.*?</ql:key>} $data {} data
-  regsub -all {<ql:bubble>.*?/>} $data {} data
+  regsub -all {<ql:bubble.*?/>} $data {} data
 
   # Convert waypoints of GPX file separately
+  set wpt ""
   if {${::gpx.points}} {
     set next $data
     while {[regexp {^(.*?)(<wpt.*?</wpt>)(.*)$} $next {} head body tail]} {
       set reply [convert_gpx_waypoint $body]
-      append result $reply
       set next $tail
+      append wpt $reply
     }
   }
   regsub -all {<wpt.*?</wpt>} $data {} data
 
   # Convert tracks of GPX file separately
+  set trk ""
   if {${::gpx.tracks}} {
     set next $data
     while {[regexp {^(.*?)(<trk>.*?</trk>)(.*)$} $next {} head body tail]} {
@@ -1267,13 +1287,16 @@ proc convert_gpx_file {file} {
 	thread::send $::sid "set wdone 1"
 	return
       }
-      append result $reply
       set next $tail
+      regexp {^(.*?)(<wpt.*</wpt>)(.*)$} $reply {} head body tail
+      append wpt " " $body
+      append trk $head$tail
     }
   }
   regsub -all {<trk>.*?</trk>} $data {} data
 
   # Convert routes of GPX file separately
+  set rte ""
   if {${::gpx.routes}} {
     set next $data
     while {[regexp {^(.*?)(<rte>.*?</rte>)(.*)$} $next {} head body tail]} {
@@ -1283,21 +1306,31 @@ proc convert_gpx_file {file} {
 	thread::send $::sid "set wdone 1"
 	return
       }
-      append result $reply
       set next $tail
+      regexp {^(.*?)(<wpt.*</wpt>)(.*)$} $reply {} head body tail
+      append wpt " " $body
+      append rte $head$tail
     }
   }
   regsub -all {<rte>.*?</rte>} $data {} data
 
+  # Global extensions
+  if {[regexp {^(.*)(<extensions>.*</extensions>)(.*</gpx>.*)$} \
+	$data {} head ext tail]} {
+    set ext " $ext"
+  } else {
+    regexp {^(.*)(.*)?(</gpx>.*)$} $data {} head ext tail
+  }
+
   # Embed conversion result
-  regexp {^(.*?)(</gpx>.*)$} $data {} head tail
-  set result $head$result$tail
+  # Keep GPX 1.1 scheme order: waypoints-routes-tracks-extensions
+  set result "$head$wpt$rte$trk$ext$tail"
 
   # Remove empty lines
   regsub -line -all {^\s*$\n?} $result {} result
 
   # Write converted GPX file
-  set file ${::gpx.prefix}.$file
+  set file "[file dirname $file]/${::gpx.prefix}.[file tail $file]"
   set fd [open $file w]
   puts -nonewline $fd $result
   close $fd
@@ -1320,10 +1353,15 @@ proc convert_gpx_waypoint {point} {
   if {$id != ""} {
     regsub {^.*<name>(.*?)</name>.*$} $point {\1} name
     cputx "[format $::m62 $name] ..."
-    set string {<extensions><om:oruxmapsextensions xmlns:om="http://www.oruxmaps.com/oruxmapsextensions/1/0"><om:ext type="ICON" subtype="0">}
-    append string $id
-    append string {</om:ext></om:oruxmapsextensions></extensions>}
-    regsub {(</wpt>)} $point "$string\\1" point
+    if {![regexp {(.*)(?:<extensions>)(.*)(?:</extensions>)(.*</wpt>)} \
+	$point {} head ext tail]} {
+      regexp {(.*)(.*)?(</wpt>)} $point {} head ext tail
+    }
+    set ext "<extensions>$ext"
+    append ext { <om:oruxmapsextensions><om:ext type="ICON" subtype="0">} \
+	$id {</om:ext></om:oruxmapsextensions>} \n
+    append ext "  </extensions>"
+    set point " $head$ext$tail\n"
   }
   return $point
 }
@@ -1477,6 +1515,7 @@ proc brouter_query {lonlats} {
     if {$i < 0} break
     set i [string first "</wpt>" $tail]
     set body [string range $tail 0 $i-1]
+    regsub { xmlns:om=".*?"} $body {} body
     set tail [string range $tail $i end]
     if {[regexp {.*<om:ext type="ICON" subtype="0">([0-9]+?)</om:ext>.*} \
 	$body {} id]} {
@@ -1484,27 +1523,27 @@ proc brouter_query {lonlats} {
       lappend lonlats [regsub {.*lat="(.*?)".*lon="(.*?)".*} $body {\2,\1}]
       set name [lindex [array get ::icon_ids $id] 1]
       if {$name == ""} {set name Icon$id}
-      set string "\n<sym>$name</sym>\n"
+      set string "\n  <sym>$name</sym>\n"
       if {$numbers} {set name "[format $f [incr n]] $name"}
       if {$labels} {append string "<name>$name</name>\n"}
-      regsub {(<extensions>)} $body "$string\\1" body
+      regsub {(<extensions>)} $body "$string  \\1" body
     } elseif {[regsub {.*<type>(from)</type>.*} $body {38} id]} {
       # OM starting waypoint
       set name [lindex [array get ::icon_ids $id] 1]
       if {$name == ""} {set name Icon$id}
-      set string "<sym>$name</sym>\n"
+      set string "  <sym>$name</sym>\n"
       if {$labels} {append string "<name>$name</name>\n"}
       regsub {<name>.*</type>} $body $string body
     } elseif {[regsub {.*<type>(to)</type>.*} $body {15} id]} {
       # OM finishing waypoint
       set name [lindex [array get ::icon_ids $id] 1]
       if {$name == ""} {set name Icon$id}
-      set string "<sym>$name</sym>\n"
+      set string "  <sym>$name</sym>\n"
       if {$labels} {append string "<name>$name</name>\n"}
       regsub {<name>.*</type>} $body $string body
     } elseif {[regsub {.*<type>(via)</type>.*} $body {1} id]} {
       # OM support waypoint
-      set string "<sym>Waypoint</sym>\n"
+      set string "  <sym>Waypoint</sym>\n"
       regsub {<name>.*</type>} $body $string body
     }
     append result $body

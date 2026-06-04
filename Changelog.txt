@@ -1,3 +1,9 @@
+2026-06-04
+
+- Fixed: Garmin "Basecamp" failed to import GPX output file
+- Enabled drag-n-drop of input files
+  when Tcl/Tk package "tkdnd" available
+
 2026-05-28
 
 - Fixed: GPX invalid if "<desc>...</desc>" contains HTML 
