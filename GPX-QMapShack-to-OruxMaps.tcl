@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 package require Tk
 wm withdraw .
 
-set version "2026-06-04"
+set version "2026-06-05"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -1385,7 +1385,7 @@ proc convert_gpx_track {track} {
   }
   cputx "[format $::m63 $trkname [llength $lonlats]] ..."
 
-  set result [brouter_query $lonlats]
+  set result [brouter_query $lonlats $trkname]
   if {$result == ""} {return ""}
 
   # Replace BRouter generated track header by QMS track header
@@ -1413,7 +1413,7 @@ proc convert_gpx_route {route} {
   }
   cputx "[format $::m64 $rtename [llength $lonlats]] ..."
 
-  set result [brouter_query $lonlats]
+  set result [brouter_query $lonlats $rtename]
   if {$result == ""} {return ""}
 
   # Replace BRouter generated track header by QMS route header
@@ -1423,7 +1423,7 @@ proc convert_gpx_route {route} {
   return $result
 }
 
-proc brouter_query {lonlats} {
+proc brouter_query {lonlats trkname} {
   upvar #0 tcp.port port track.profile profile track.variant variant \
 	waypoint.export waypoints turnpoint.export turnpoints \
 	waypoint.labels labels waypoint.numbers numbers
@@ -1502,16 +1502,16 @@ proc brouter_query {lonlats} {
   # Map BRouter waypoints to OM waypoints
   # Collect constraint track waypoints
   set n [regexp -all {<om:ext type="ICON" subtype="0">([0-9]+?)</om:ext>} $data]
-  set f "%0[string length $n]d"
-  set n 0
+  set fmt "%0[string length $n]d"
+  set num 0
   set lonlats {}
   set tail $data
-  set result ""
+  set wpt ""
   while {1} {
     set i [string first "<wpt" $tail]
     set head [string range $tail 0 $i-1]
     set tail [string range $tail $i end]
-    append result $head
+    append wpt $head
     if {$i < 0} break
     set i [string first "</wpt>" $tail]
     set body [string range $tail 0 $i-1]
@@ -1522,54 +1522,70 @@ proc brouter_query {lonlats} {
       # OM direction waypoint
       lappend lonlats [regsub {.*lat="(.*?)".*lon="(.*?)".*} $body {\2,\1}]
       set name [lindex [array get ::icon_ids $id] 1]
-      if {$name == ""} {set name Icon$id}
-      set string "\n  <sym>$name</sym>\n"
-      if {$numbers} {set name "[format $f [incr n]] $name"}
-      if {$labels} {append string "<name>$name</name>\n"}
+      if {$numbers} {set name "[format $fmt [incr num]] $name"}
+      set string \n
+      if {$labels} {append string "  <name>$name</name>\n"}
+      append string "  <sym>$name</sym>\n"
       regsub {(<extensions>)} $body "$string  \\1" body
-    } elseif {[regsub {.*<type>(from)</type>.*} $body {38} id]} {
+    } elseif {[regsub {.*<name>from</name>.*} $body {38} id]} {
       # OM starting waypoint
       set name [lindex [array get ::icon_ids $id] 1]
       if {$name == ""} {set name Icon$id}
-      set string "  <sym>$name</sym>\n"
-      if {$labels} {append string "<name>$name</name>\n"}
-      regsub {<name>.*</type>} $body $string body
-    } elseif {[regsub {.*<type>(to)</type>.*} $body {15} id]} {
+      set string \n
+      if {$labels} {append string "  <name>$name</name>\n"}
+      append string "  <sym>$name</sym>\n"
+      regsub {<name>.*</type>} $body "$string " body
+    } elseif {[regsub {.*<name>to</name>.*} $body {15} id]} {
       # OM finishing waypoint
       set name [lindex [array get ::icon_ids $id] 1]
       if {$name == ""} {set name Icon$id}
-      set string "  <sym>$name</sym>\n"
-      if {$labels} {append string "<name>$name</name>\n"}
-      regsub {<name>.*</type>} $body $string body
-    } elseif {[regsub {.*<type>(via)</type>.*} $body {1} id]} {
+      set string \n
+      if {$labels} {append string "  <name>$name</name>\n"}
+      append string "  <sym>$name</sym>\n"
+      regsub {<name>.*</type>} $body "$string " body
+    } elseif {[regsub {.*<type>shaping</type>.*} $body {47} id]} {
       # OM support waypoint
-      set string "  <sym>Waypoint</sym>\n"
-      regsub {<name>.*</type>} $body $string body
+      set name [lindex [array get ::icon_ids $id] 1]
+      if {$name == ""} {set name Icon$id}
+      set string \n
+      if {$labels} {append string "  <name>$name</name>\n"}
+      append string "  <sym>$name</sym>\n"
+      foreach item [list "<extensions>" "<om:oruxmapsextensions>" \
+	" <om:ext type=\"ICON\" subtype=\"0\">$id</om:ext>" \
+	"</om:oruxmapsextensions>" "</extensions>"] {append string "  $item\n"}
+      regsub {<name>.*</type>} $body "$string " body
     }
-    append result $body
+    append wpt $body
   }
-  append result $tail
 
   # Set QMS track flags depending on collected BRouter track waypoints:
   # flag = 0	... Constraint points, in QMS always visible
   # flag = 8	... Support points, in QMS visible as dots when editing track
-  set tail $result
-  set result ""
+  # flag = 16	... Starting point or endpoint, in QMS always visible
+  set max [regexp -all {<trkpt .*?</trkpt>} $tail]
+  set cnt 0
+  set trk ""
    while {1} {
+    incr cnt
     set i [string first "<trkpt" $tail]
     set head [string range $tail 0 $i-1]
     set tail [string range $tail $i end]
-    append result $head
+    append trk $head
     if {$i < 0} break
     set i [string first "</trkpt>" $tail]
     set body [string range $tail 0 $i-1]
     set tail [string range $tail $i end]
     regsub {.*lon="(.*?)".*lat="(.*?)".*} $body {\1,\2} item
-    set flag [expr {$item in $lonlats} ? 0 : 8]
+    if {$cnt == 1 || $cnt == $max} {
+      set flag 16
+    } else {
+      set flag [expr {$item in $lonlats} ? 0 : 8]
+    }
     append body "<extensions><ql:flags>$flag</ql:flags></extensions>"
-    append result $body
+    append trk $body
   }
-  append result $tail
+
+  set result $wpt$trk$tail
   return $result
 }
 
@@ -1588,7 +1604,7 @@ proc run_convert_job {} {
     set script ""
     foreach item {
 	gpx.prefix tcp.port track.profile track.variant \
-        gpx.tracks gpx.routes gpx.points \
+	gpx.tracks gpx.routes gpx.points \
 	waypoint.export turnpoint.export \
 	waypoint.labels waypoint.numbers} {
 	append script "set $item {[set ::$item]};"

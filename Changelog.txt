@@ -1,3 +1,11 @@
+2026-06-05
+
+- Fixed: Garmin "Basecamp" failed to import GPX output file
+  containing converted support points
+- Fixed: Adapted support point conversion to
+  BRouter 1.7.9 version's output format
+- Aligned XML elements for better readability
+
 2026-06-04
 
 - Fixed: Garmin "Basecamp" failed to import GPX output file
