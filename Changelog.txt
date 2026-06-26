@@ -1,3 +1,7 @@
+2026-06-26
+
+- Fixed: Conversion of waypoints without names
+
 2026-06-05
 
 - Fixed: Garmin "Basecamp" failed to import GPX output file

@@ -24,7 +24,7 @@ if {[encoding system] != "utf-8"} {
 package require Tk
 wm withdraw .
 
-set version "2026-06-05"
+set version "2026-06-26"
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -1348,10 +1348,10 @@ proc convert_gpx_file {file} {
 
 proc convert_gpx_waypoint {point} {
   # Map user defined QMS waypoint to OM waypoint
-  regsub {^.*<sym>(.*?)</sym>.*$} $point {\1} sym
+  if {![regsub {^.*<sym>(.*?)</sym>.*$} $point {\1} sym]} {return $point}
   set id [lindex [array get ::icon_names $sym] 1]
   if {$id != ""} {
-    regsub {^.*<name>(.*?)</name>.*$} $point {\1} name
+    if {![regsub {^.*<name>(.*?)</name>.*$} $point {\1} name]} {set name $sym}
     cputx "[format $::m62 $name] ..."
     if {![regexp {(.*)(?:<extensions>)(.*)(?:</extensions>)(.*</wpt>)} \
 	$point {} head ext tail]} {
