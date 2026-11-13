@@ -1,3 +1,8 @@
+2026-11-13
+
+- Show OS and version in output console
+- Improvements and bug fixes
+
 2026-06-26
 
 - Fixed: Conversion of waypoints without names

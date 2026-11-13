@@ -1,9 +1,6 @@
 # Convert QMapShack tracks to OruxMaps tracks
 # ===========================================
 
-# Important:
-# - At least Java version 17 is required!
-
 # Notes:
 # - Additional user settings file is mandatory!
 #   Name of file = this script's full path
@@ -24,7 +21,7 @@ if {[encoding system] != "utf-8"} {
 package require Tk
 wm withdraw .
 
-set version "2026-06-26"
+set version 2026-11-13
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -320,11 +317,11 @@ if {![info exists locale]} {
 set file [file rootname $script].ini
 if {![file exist $file]} {
   messagebox -title $title -icon error \
-	-message "[mc i01 [file tail $file]]"
+	-message [mc i01 [file tail $file]]
   exit
 } elseif {[catch {source $file} result]} {
   messagebox -title $title -icon error \
-	-message "[mc i00 [file tail $file]]:\n$result"
+	-message [mc i00 [file tail $file]]:\n$result
   exit
 }
 
@@ -371,19 +368,19 @@ cd $cwd
 if {$tcl_platform(os) == "Windows NT"} {
   package require registry
   if {![info exists env(TMP)]} {set env(TMP) $env(HOME)]}
-  append env(TMP) \\[format "GPX%8.8x" [pid]]
+  append env(TMP) \\[format GPX%8.8x [pid]]
   set tmpdir [file normalize $env(TMP)]
   set null NUL
   set nprocs $env(NUMBER_OF_PROCESSORS)
 } elseif {$tcl_platform(os) == "Linux"} {
   if {![info exists env(TMPDIR)]} {set env(TMPDIR) /tmp}
-  append env(TMPDIR) /[format "GPX%8.8x" [pid]]
+  append env(TMPDIR) /[format GPX%8.8x [pid]]
   set tmpdir $env(TMPDIR)
   set null /dev/null
   set nprocs [exec /usr/bin/nproc]
 } elseif {$tcl_platform(os) == "Darwin"} {
   if {![info exists env(TMPDIR)]} {set env(TMPDIR) /tmp}
-  append env(TMPDIR) /[format "TMS%8.8x" [pid]]
+  append env(TMPDIR) /[format TMS%8.8x [pid]]
   set tmpdir $env(TMPDIR)
   set nprocs [exec sysctl -n hw.ncpu]
 } else {
@@ -510,7 +507,7 @@ bind .konsole <Control-KP_Subtract> {console_font_size_incr -1}
 
 bind .konsole <Configure> {
   if {"%W" != ".konsole"} continue
-  scan [wm geometry %W] "%%dx%%d+%%d+%%d" cols rows x y
+  scan [wm geometry %W] %%dx%%d+%%d+%%d cols rows x y
   set console.geometry "$x $y $cols $rows"
 }
 
@@ -568,6 +565,8 @@ proc cputx {text} {cputs "\[···\] $text"}
 cputw [mc m51 [pid] [file tail [info nameofexecutable]]]
 cputw "Tcl/Tk version $tcl_patchLevel"
 cputw "Script '[file tail $script]' version $version"
+cputw "OS $tcl_platform(os) version $tcl_platform(osVersion)\
+	($tcl_platform(machine))"
 
 # Show error message
 
@@ -720,14 +719,9 @@ pack .l -side left -anchor nw
 
 # BRouter title
 
-label .server_title -text "BRouter"
+label .server_title -text BRouter
 pack .server_title -in .l
 hyperlink .server_title https://github.com/abrensch/brouter
-
-# BRouter configuration
-
-label .server_config -text [mc l01]: -anchor w
-pack .server_config -in .l -fill x
 
 # BRouter server home folder
 
@@ -739,7 +733,7 @@ pack .server_home_value -in .server_home -fill x
 
 # BRouter server version jar archive
 
-labelframe .brouter_jar -text "[mc l03]: $server_string"
+labelframe .brouter_jar -text "[mc l03] $server_string"
 pack .brouter_jar -in .l -fill x -pady 1
 entry .brouter_jar_value -textvariable brouter_jar \
 	-state readonly -takefocus 0 -highlightthickness 0
@@ -813,7 +807,7 @@ pack .sep -in .l -fill x -pady 5
 
 # Java runtime version
 
-labelframe .jre_version -labelanchor w -text [mc l10]:
+labelframe .jre_version -labelanchor w -text [mc l10]
 pack .jre_version -in .l -fill x -pady 1
 label .jre_version_value -textvariable java_string
 pack .jre_version_value -in .jre_version -side right -padx {3 0}
@@ -839,17 +833,17 @@ pack .r -anchor nw -fill x
 
 # Select GPX input files
 
-labelframe .gpx_files -text [mc r10]:
+labelframe .gpx_files -text [mc r10]
 pack .gpx_files -in .r -fill x -pady 1
 set gpx_files {}
 listbox .gpx_files_list -selectmode browse -activestyle none \
-	-height 3 -listvariable gpx_files -state disabled
+	-height 5 -listvariable gpx_files -state disabled
 button .gpx_files_button -image ArrowDown -command choose_gpx_files
 pack .gpx_files_button -in .gpx_files -side right -fill y -pady 1
 pack .gpx_files_list -in .gpx_files -side left -fill x -expand 1
 
 # Enable drag-n-drop input files
-# Requires pacalage tkdnd
+# Requires package tkdnd
 if {![catch "package require tkdnd"]} {
   tkdnd::drop_target register .gpx_files_list DND_Files
   bind .gpx_files_list <<Drop>> {
@@ -858,6 +852,8 @@ if {![catch "package require tkdnd"]} {
       if {[string tolower [file extension $file]] != ".gpx"} continue
       lappend ::gpx_files $file
     }
+    set ::gpx_files [lsort -unique $::gpx_files]
+    gpx_files_tooltip
     return %A
   }
 }
@@ -871,11 +867,16 @@ proc choose_gpx_files {} {
   set ::gpx.folder [file dirname [lindex $files 0]]
   set ::gpx_files [lmap file $files {lindex [file split $file] end}]
   set ::gpx_files [lsort -unique $::gpx_files]
+  gpx_files_tooltip
+}
+
+proc gpx_files_tooltip {} {
+  tooltip .gpx_files_list [join [.gpx_files_list get 0 end] \n]
 }
 
 # GPX output file prefix
 
-labelframe .gpx_prefix -labelanchor w -text [mc r12]:
+labelframe .gpx_prefix -labelanchor w -text [mc r12]
 entry .gpx_prefix_value -textvariable gpx.prefix \
 	-width 8 -justify left
 pack .gpx_prefix -in .r -fill x -pady 1
@@ -922,9 +923,9 @@ set list [lmap item $list {regsub {.brf$} $item {}}]
 set width 0
 foreach item $list \
 	{set width [expr max([font measure TkTextFont $item],$width)]}
-set width [expr $width/[font measure TkTextFont "0"]+1]
+set width [expr $width/[font measure TkTextFont 0]+1]
 
-labelframe .profile -text [mc r01]:
+labelframe .profile -text [mc r01]
 pack .profile -in .r -fill x -pady 1
 combobox .profile_values -width $width \
 	-validate key -validatecommand {return 0} \
@@ -939,9 +940,9 @@ set list [mc r02l]
 set width 0
 foreach item $list \
 	{set width [expr max([font measure TkTextFont $item],$width)]}
-set width [expr $width/[font measure TkTextFont "0"]+1]
+set width [expr $width/[font measure TkTextFont 0]+1]
 
-labelframe .variant -labelanchor w -text [mc r02]:
+labelframe .variant -labelanchor w -text [mc r02]
 pack .variant -in .r -fill x -pady 1
 combobox .variant_values -width $width \
 	-validate key -validatecommand {return 0} \
@@ -1040,7 +1041,7 @@ bind . <Control-KP_Subtract> {incr_font_size -1}
 # Save global settings to folder ini_folder
 
 proc save_script_settings {} {
-  scan [wm geometry .] "%dx%d+%d+%d" width height x y
+  scan [wm geometry .] %dx%d+%d+%d width height x y
   set ::window.geometry "$x $y $width $height"
   save_settings $::ini_folder/$::settings \
 	window.geometry font.size \
@@ -1121,12 +1122,12 @@ proc brouter_start {} {
   lappend command $::java_cmd @$::tmpdir/java_args
 
   # Uncomment to write BRouter's arguments to console
-  #foreach item $params {cputs $item}
+# foreach item $params {cputs $item}
 
   # Uncomment to write BRouter's arguments to file
-  #set fd [open brouter.arguments w]
-  #foreach item $params {puts $fd $item}
-  #close $fd
+# set fd [open brouter.arguments w]
+# foreach item $params {puts $fd $item}
+# close $fd
 
   # Server's TCP port is currently in use?
 
@@ -1218,7 +1219,7 @@ proc wsend {script} "return \[thread::send $wid \$script\]"
 foreach item {e17 m60 m61 m62 m63 m64 m65 m66 m67 m68} \
 	{wsend "set $item \"[mc $item]\""}
 
-foreach item {cputi cputx get_shell_command} \
+foreach item {cputi cputw cputx get_shell_command} \
 	{wsend "proc $item {*}[lmap name {args body} {info $name $item}]"}
 
 wsend {
@@ -1255,7 +1256,7 @@ proc convert_gpx_file {file} {
   if {[regexp -indices {^.*?creator="(.*?)".*$} $body {} range]} {
     lassign $range from to
     cputx [format $::m60 [string range $body $from $to]]
-    set body [string replace $body $from $to "GPX-QMapShack-to-OruxMaps"]
+    set body [string replace $body $from $to GPX-QMapShack-to-OruxMaps]
   }
   set data $head$body$tail
 
@@ -1264,67 +1265,74 @@ proc convert_gpx_file {file} {
   regsub -all {<ql:key>.*?</ql:key>} $data {} data
   regsub -all {<ql:bubble.*?/>} $data {} data
 
+  # Extract waypoints, tracks and routes
+  lassign {} wpts trks rtes
+  if {[regexp -indices {[[:blank:]]*<wpt.*/wpt>} $data range]} {
+    set wpts [string range $data {*}$range]
+    set data [string replace $data {*}$range]
+  }
+  if {[regexp -indices {[[:blank:]]*<trk.*/trk>} $data range]} {
+    set trks [string range $data {*}$range]
+    set data [string replace $data {*}$range]
+  }
+  if {[regexp -indices {[[:blank:]]*<rte.*/rte>} $data range]} {
+    set rtes [string range $data {*}$range]
+    set data [string replace $data {*}$range]
+  }
+
   # Convert waypoints of GPX file separately
-  set wpt ""
+  set wpt \n
   if {${::gpx.points}} {
-    set next $data
-    while {[regexp {^(.*?)(<wpt.*?</wpt>)(.*)$} $next {} head body tail]} {
+    while {[regexp {^(.*?)(<wpt.*?</wpt>)(.*)$} $wpts {} head body tail]} {
       set reply [convert_gpx_waypoint $body]
-      set next $tail
-      append wpt $reply
+      set wpts $tail
+      append wpt $head$reply
     }
   }
-  regsub -all {<wpt.*?</wpt>} $data {} data
 
   # Convert tracks of GPX file separately
-  set trk ""
+  set trk \n
   if {${::gpx.tracks}} {
-    set next $data
-    while {[regexp {^(.*?)(<trk>.*?</trk>)(.*)$} $next {} head body tail]} {
+    while {[regexp {^(.*?)(<trk>.*?</trk>)(.*)$} $trks {} head body tail]} {
       set reply [convert_gpx_track $body]
-      if {![string length $reply]} {
+      if {![llength $reply]} {
 	cputi $::m68
 	thread::send $::sid "set wdone 1"
 	return
       }
-      set next $tail
-      regexp {^(.*?)(<wpt.*</wpt>)(.*)$} $reply {} head body tail
-      append wpt " " $body
-      append trk $head$tail
+      set trks $tail
+      append trk [lindex $reply 0]
+      append wpt [lindex $reply 1]
     }
   }
-  regsub -all {<trk>.*?</trk>} $data {} data
 
   # Convert routes of GPX file separately
-  set rte ""
+  set rte \n
   if {${::gpx.routes}} {
-    set next $data
-    while {[regexp {^(.*?)(<rte>.*?</rte>)(.*)$} $next {} head body tail]} {
+    while {[regexp {^(.*?)(<rte>.*?</rte>)(.*)$} $rtes {} head body tail]} {
       set reply [convert_gpx_route $body]
-      if {![string length $reply]} {
+      if {![llength $reply]} {
 	cputi $::m68
 	thread::send $::sid "set wdone 1"
 	return
       }
-      set next $tail
-      regexp {^(.*?)(<wpt.*</wpt>)(.*)$} $reply {} head body tail
-      append wpt " " $body
-      append rte $head$tail
+      set rtes $tail
+      append rte [lindex $reply 0]
+      append wpt [lindex $reply 1]
     }
   }
-  regsub -all {<rte>.*?</rte>} $data {} data
 
   # Global extensions
   if {[regexp {^(.*)(<extensions>.*</extensions>)(.*</gpx>.*)$} \
 	$data {} head ext tail]} {
-    set ext " $ext"
+    set ext "\n $ext"
   } else {
     regexp {^(.*)(.*)?(</gpx>.*)$} $data {} head ext tail
   }
 
   # Embed conversion result
   # Keep GPX 1.1 scheme order: waypoints-routes-tracks-extensions
-  set result "$head$wpt$rte$trk$ext$tail"
+  set result $head$wpt$rte$trk$ext$tail
 
   # Remove empty lines
   regsub -line -all {^\s*$\n?} $result {} result
@@ -1361,7 +1369,7 @@ proc convert_gpx_waypoint {point} {
     append ext { <om:oruxmapsextensions><om:ext type="ICON" subtype="0">} \
 	$id {</om:ext></om:oruxmapsextensions>} \n
     append ext "  </extensions>"
-    set point " $head$ext$tail\n"
+    set point "$head$ext$tail\n"
   }
   return $point
 }
@@ -1384,15 +1392,17 @@ proc convert_gpx_track {track} {
     lappend lonlats "$lon,$lat"
   }
   cputx "[format $::m63 $trkname [llength $lonlats]] ..."
+  if {[llength $lonlats] < 2} {return {}}
 
   set result [brouter_query $lonlats $trkname]
-  if {$result == ""} {return ""}
+  if {![llength $result]} {return {}}
+  lassign $result trk wpt
 
   # Replace BRouter generated track header by QMS track header
-  regsub "<trk>.*?<trkseg>" $result $trkhead result
+  regsub "<trk>.*?<trkseg>" $trk $trkhead trk
   # Remove BRouter track encapsulation
-  regsub {^.*creator.*?>(.*)</gpx>.*$} $result {\1} result
-  return $result
+  regsub {^.*creator.*?>(.*)</gpx>.*$} $trk {\1} trk
+  return [list $trk $wpt]
 }
 
 # Convert GPX route QMapShack -> OruxMaps
@@ -1412,15 +1422,17 @@ proc convert_gpx_route {route} {
     lappend lonlats "$lon,$lat"
   }
   cputx "[format $::m64 $rtename [llength $lonlats]] ..."
+  if {[llength $lonlats] < 2} {return {}}
 
   set result [brouter_query $lonlats $rtename]
-  if {$result == ""} {return ""}
+  if {![llength $result]} {return {}}
+  lassign $result trk wpt
 
   # Replace BRouter generated track header by QMS route header
-  regsub "(<trk>).*?(<trkseg>)" $result \\1$rtehead\\2 result
+  regsub "(<trk>).*?(<trkseg>)" $trk \\1$rtehead\\2 trk
   # Remove BRouter track encapsulation
-  regsub {^.*creator.*?>(.*)</gpx>.*$} $result {\1} result
-  return $result
+  regsub {^.*creator.*?>(.*)</gpx>.*$} $trk {\1} trk
+  return [list $trk $wpt]
 }
 
 proc brouter_query {lonlats trkname} {
@@ -1429,7 +1441,7 @@ proc brouter_query {lonlats trkname} {
 	waypoint.labels labels waypoint.numbers numbers
 
   # Let BRouter generate track from lonlat points
-  set url "http://127.0.0.1:$port/brouter"
+  set url http://127.0.0.1:$port/brouter
   append url ?profile=$profile
   append url &alternativeidx=$variant
   append url &format=gpx
@@ -1439,16 +1451,16 @@ proc brouter_query {lonlats trkname} {
 
   set cfg $::tmpdir/curl_config
   set fd [open $cfg w]
-  puts $fd "url=$url"
+  puts $fd url=$url
   close $fd
 
   # Uncomment to write BRouter's request to console
-  #cputs "url=$url"
+# cputs url=$url
 
   # Uncomment to write BRouter's request to file
-  #set fd [open $trkname.brouter.request w]
-  #puts $fd "url=$url"
-  #close $fd
+# set fd [open $trkname.brouter.request w]
+# puts $fd url=$url
+# close $fd
 
   set command $::curl
   lappend command -qsk
@@ -1458,7 +1470,7 @@ proc brouter_query {lonlats trkname} {
   if {[catch {open "| $command 2>@1" r} fd]} {
     cputx $::e16
     cputx $fd
-    return ""
+    return {}
   }
 
   # Prevent script from becoming unresponsive
@@ -1484,29 +1496,40 @@ proc brouter_query {lonlats trkname} {
   if {![regexp {^\s*<.*} $data]} {
     if {$data == ""} {cputw $::e17} \
     else {cputs "\[SRV\] $data"}
-    return ""
+    return {}
   }
 
   # Uncomment to write BRouter's response to console
-  #cputs $data
+# cputs $data
 
   # Uncomment to write BRouter's response to file
-  #set fd [open $trkname.brouter.response w]
-  #puts $fd $data
-  #close $fd
+# set fd [open $trkname.brouter.response w]
+# puts $fd $data
+# close $fd
 
   # BRouter generated track statistics
   regsub {.*<!-- (.*?) -->.*} $data {\1} info
   if {$info != ""} {cputx [format $::m67 $info]}
 
+  # Extract waypoints and tracks
+  lassign {} wpts trks
+  if {[regexp -indices {[[:blank:]]*<wpt.*/wpt>} $data range]} {
+    set wpts [string range $data {*}$range]
+    set data [string replace $data {*}$range]
+  }
+  if {[regexp -indices {[[:blank:]]*<trk.*/trk>} $data range]} {
+    set trks [string range $data {*}$range]
+    set data [string replace $data {*}$range]
+  }
+
   # Map BRouter waypoints to OM waypoints
   # Collect constraint track waypoints
-  set n [regexp -all {<om:ext type="ICON" subtype="0">([0-9]+?)</om:ext>} $data]
+  set n [regexp -all {<om:ext type="ICON" subtype="0">([0-9]+?)</om:ext>} $wpts]
   set fmt "%0[string length $n]d"
   set num 0
   set lonlats {}
-  set tail $data
-  set wpt ""
+  set tail $wpts
+  set wpt \n
   while {1} {
     set i [string first "<wpt" $tail]
     set head [string range $tail 0 $i-1]
@@ -1557,15 +1580,16 @@ proc brouter_query {lonlats trkname} {
     }
     append wpt $body
   }
+  append wpt $tail
 
   # Set QMS track flags depending on collected BRouter track waypoints:
   # flag = 0	... Constraint points, in QMS always visible
   # flag = 8	... Support points, in QMS visible as dots when editing track
   # flag = 16	... Starting point or endpoint, in QMS always visible
-  set max [regexp -all {<trkpt .*?</trkpt>} $tail]
-  set cnt 0
-  set trk ""
-   while {1} {
+  set max [regexp -all {<trkpt .*?</trkpt>} $trks]
+  set tail $trks
+  set trk \n
+  while {1} {
     incr cnt
     set i [string first "<trkpt" $tail]
     set head [string range $tail 0 $i-1]
@@ -1584,9 +1608,9 @@ proc brouter_query {lonlats trkname} {
     append body "<extensions><ql:flags>$flag</ql:flags></extensions>"
     append trk $body
   }
+  append trk $tail
 
-  set result $wpt$trk$tail
-  return $result
+  return [list $trk $wpt]
 }
 
 }; # End of wsend
@@ -1614,6 +1638,8 @@ proc run_convert_job {} {
     thread::send -async $::wid $script
     vwait ::wdone
     unset ::wdone
+    gpx_files_tooltip
+    update idletasks
     if {$::cancel} break
   }	
   cd $cwd
@@ -1683,7 +1709,7 @@ wm withdraw .
 # Wait until output console window was closed
 
 if {[winfo ismapped .konsole]} {
-  console_write "\n[mc m99]\b"
+  console_write \n[mc m99]\b
   wm protocol .konsole WM_DELETE_WINDOW {}
   bind .konsole <ButtonRelease-3> {destroy .konsole}
   tkwait window .konsole
