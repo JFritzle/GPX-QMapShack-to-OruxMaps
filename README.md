@@ -16,13 +16,13 @@ Graphical user interface is a single script written in _Tcl/Tk_ scripting langua
 
 User settings file is named _GPX-QMapShack-to-OruxMaps.ini_. A template file is provided.
 
-Resource files are named _GPX-QMapShack-to-OruxMaps.<locale\>_, where _<locale\>_ matches locale’s 2 lowercase letters ISO 639-1 code. English localized resource file _GPX-QMapShack-to-OruxMaps.en_ and German localized resource file _GPX-QMapShack-to-OruxMaps.de_ are provided. Script can be easily localized to any other system’s locale by providing a corresponding resource file using English resource file as a template. 
+Resource files are named _GPX-QMapShack-to-OruxMaps.<locale\>_, where _<locale\>_ matches locale’s 2 lowercase letters ISO 639-1 code. English localized resource file _GPX-QMapShack-to-OruxMaps.en_, French localized resource file _GPX-QMapShack-to-OruxMaps.fr_ and German localized resource file _GPX-QMapShack-to-OruxMaps.de_ are provided. Script can be easily localized to any other system’s locale by providing a corresponding resource file using English resource file as a template. 
 
 Screenshot of graphical user interface: 
 
-![Image](https://github.com/user-attachments/assets/9b5472c9-baf8-4123-b749-e9a160b5b719)
+<img width="350" height="464" alt="1" src="https://github.com/user-attachments/assets/1085d134-6ab0-47bb-9c6b-c9106ce1bd4f" />
 
-![Image](https://github.com/user-attachments/assets/fc166fb9-9630-443c-aebf-31c60a700ad0)
+<img width="842" height="453" alt="2" src="https://github.com/user-attachments/assets/545e5b5e-251d-4bf4-9b9f-0ea74d979c87" />
 
 
 ### Installation
@@ -41,10 +41,11 @@ Each JDK contains JRE as subset.
 
 3.	**Tcl/Tk scripting language version 8.6 or higher binaries**  
 **Windows**: Download and install latest stable version of Tcl/Tk, currently 9.0.  
-See https://wiki.tcl-lang.org/page/Binary+Distributions for available binary distributions. A suitable Windows binary distribution is from [Magicsplat](https://sourceforge.net/projects/magicsplat/files/magicsplat-tcl/) repository. Select most recent installation file _tcl-9.0.3-installer-2.0.6-x64.msi_ or newer. Install into your Tcl/Tk installation folder, e.g. _%ProgramFiles%/Tcl_.  
-**Linux**: Install packages _tcl, tcllib, tcl-thread, tk_, _tklib_, _x11-utils_  and _wmctrl_ using Linux package manager. 
-(Ubuntu: _apt install tcl tcllib tcl-thread tk tklib_ _x11-utils_ _wmctrl_)   
+See https://wiki.tcl-lang.org/page/Binary+Distributions for available binary distributions. A suitable Windows binary distribution is from [Magicsplat](https://sourceforge.net/projects/magicsplat/files/magicsplat-tcl/) repository. Select most recent installation file _9.0.4-installer-2.0.7-x64.msi_ or newer. Install into your Tcl/Tk installation folder, e.g. _%ProgramFiles%/Tcl_.  
+**Linux**: Install packages _tcl, tcllib, tcl-thread, tk_ and _tklib_ using Linux package manager. 
+(Ubuntu: _apt install tcl tcllib tcl-thread tk tklib_)   
 **macOS**: If not yet installed, install _tcl-tk_ using _Homebrew_ package manager by _brew install tcl-tk_. Unfortunately, _tklib_ containing required package _tooltip_ is not part of _tcl-tk_. Download _tklib0.9_ from [sourceforge.net](https://sourceforge.net/projects/tcllib/files/tklib/0.9) and install into folder _\<root>/Cellar/tcl-tk/\<version>/lib/tklib0.9_.  
+**Note**: If installed, _tkdnd_ package allows for drag-n-drop input files.
 
 4.	**GPX-QMapShack-to-OruxMaps graphical user interface script**  
 Download language-neutral script file _GPX-QMapShack-to-OruxMaps.tcl_, user settings file _GPX-QMapShack-to-OruxMaps.ini_ and at least one localized resource file.  
