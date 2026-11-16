@@ -865,6 +865,7 @@ if {![catch "package require tkdnd"]} {
       lappend ::gpx_files $file
     }
     set ::gpx_files [lsort -unique $::gpx_files]
+    gpx_files_tooltip
     return %A
   }
 }
@@ -878,6 +879,11 @@ proc choose_gpx_files {} {
   set ::gpx.folder [file dirname [lindex $files 0]]
   set ::gpx_files [lmap file $files {lindex [file split $file] end}]
   set ::gpx_files [lsort -unique $::gpx_files]
+  gpx_files_tooltip
+}
+
+proc gpx_files_tooltip {} {
+  tooltip .gpx_files.box [join [.gpx_files.box get 0 end] \n]
 }
 
 # GPX output file prefix
@@ -1643,6 +1649,7 @@ proc run_convert_job {} {
     vwait ::wdone
     unset ::wdone
     update idletasks
+    gpx_files_tooltip
     if {$::cancel} break
   }	
   cd $cwd
