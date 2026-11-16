@@ -21,7 +21,7 @@ if {[encoding system] != "utf-8"} {
 package require Tk
 wm withdraw .
 
-set version 2026-11-13
+set version 2026-11-16
 set script [file normalize [info script]]
 set title [file tail $script]
 set cwd [pwd]
@@ -833,27 +833,38 @@ pack .r -anchor nw -fill x
 
 # Select GPX input files
 
-labelframe .gpx_files -text [mc r10]
+frame .gpx_input
+pack .gpx_input -in .r -fill x -pady 1
+label .gpx_input.label -text [mc r10]
+button .gpx_input.button -style Arrow.TButton \
+	-image ArrowDown -command choose_gpx_files
+pack .gpx_input.button -side right -fill y -pady 1
+pack .gpx_input.label -side left -fill x -pady 1
+
+frame .gpx_files
 pack .gpx_files -in .r -fill x -pady 1
 set gpx_files {}
-listbox .gpx_files_list -selectmode browse -activestyle none \
-	-height 5 -listvariable gpx_files -state disabled
-button .gpx_files_button -image ArrowDown -command choose_gpx_files
-pack .gpx_files_button -in .gpx_files -side right -fill y -pady 1
-pack .gpx_files_list -in .gpx_files -side left -fill x -expand 1
+listbox .gpx_files.box -selectmode browse -activestyle none \
+	-height 5 -listvariable gpx_files -state disabled \
+	-yscrollcommand ".gpx_files.sby set" \
+	-xscrollcommand ".gpx_files.sbx set"
+scrollbar .gpx_files.sby -command ".gpx_files.box yview" -orient vertical
+scrollbar .gpx_files.sbx -command ".gpx_files.box xview" -orient horizontal
+pack .gpx_files.sby -side right -fill y
+pack .gpx_files.sbx -side bottom -fill x
+pack .gpx_files.box -fill x -expand 1
 
 # Enable drag-n-drop input files
 # Requires package tkdnd
 if {![catch "package require tkdnd"]} {
-  tkdnd::drop_target register .gpx_files_list DND_Files
-  bind .gpx_files_list <<Drop>> {
+  tkdnd::drop_target register .gpx_files.box DND_Files
+  bind .gpx_files.box <<Drop>> {
     foreach file %D {
       if {![file isfile $file]} continue
       if {[string tolower [file extension $file]] != ".gpx"} continue
       lappend ::gpx_files $file
     }
     set ::gpx_files [lsort -unique $::gpx_files]
-    gpx_files_tooltip
     return %A
   }
 }
@@ -867,11 +878,6 @@ proc choose_gpx_files {} {
   set ::gpx.folder [file dirname [lindex $files 0]]
   set ::gpx_files [lmap file $files {lindex [file split $file] end}]
   set ::gpx_files [lsort -unique $::gpx_files]
-  gpx_files_tooltip
-}
-
-proc gpx_files_tooltip {} {
-  tooltip .gpx_files_list [join [.gpx_files_list get 0 end] \n]
 }
 
 # GPX output file prefix
@@ -1267,21 +1273,21 @@ proc convert_gpx_file {file} {
 
   # Extract waypoints, tracks and routes
   lassign {} wpts trks rtes
-  if {[regexp -indices {[[:blank:]]*<wpt.*/wpt>} $data range]} {
+  if {[regexp -indices {\s*<wpt.*/wpt>} $data range]} {
     set wpts [string range $data {*}$range]
     set data [string replace $data {*}$range]
   }
-  if {[regexp -indices {[[:blank:]]*<trk.*/trk>} $data range]} {
+  if {[regexp -indices {\s*<trk.*/trk>} $data range]} {
     set trks [string range $data {*}$range]
     set data [string replace $data {*}$range]
   }
-  if {[regexp -indices {[[:blank:]]*<rte.*/rte>} $data range]} {
+  if {[regexp -indices {\s*<rte.*/rte>} $data range]} {
     set rtes [string range $data {*}$range]
     set data [string replace $data {*}$range]
   }
 
   # Convert waypoints of GPX file separately
-  set wpt \n
+  set wpt ""
   if {${::gpx.points}} {
     while {[regexp {^(.*?)(<wpt.*?</wpt>)(.*)$} $wpts {} head body tail]} {
       set reply [convert_gpx_waypoint $body]
@@ -1291,7 +1297,7 @@ proc convert_gpx_file {file} {
   }
 
   # Convert tracks of GPX file separately
-  set trk \n
+  set trk ""
   if {${::gpx.tracks}} {
     while {[regexp {^(.*?)(<trk>.*?</trk>)(.*)$} $trks {} head body tail]} {
       set reply [convert_gpx_track $body]
@@ -1307,7 +1313,7 @@ proc convert_gpx_file {file} {
   }
 
   # Convert routes of GPX file separately
-  set rte \n
+  set rte ""
   if {${::gpx.routes}} {
     while {[regexp {^(.*?)(<rte>.*?</rte>)(.*)$} $rtes {} head body tail]} {
       set reply [convert_gpx_route $body]
@@ -1323,10 +1329,8 @@ proc convert_gpx_file {file} {
   }
 
   # Global extensions
-  if {[regexp {^(.*)(<extensions>.*</extensions>)(.*</gpx>.*)$} \
+  if {![regexp {^(.*?)(\s*<extensions>.*</extensions>)(.*</gpx>.*)$} \
 	$data {} head ext tail]} {
-    set ext "\n $ext"
-  } else {
     regexp {^(.*)(.*)?(</gpx>.*)$} $data {} head ext tail
   }
 
@@ -1513,11 +1517,11 @@ proc brouter_query {lonlats trkname} {
 
   # Extract waypoints and tracks
   lassign {} wpts trks
-  if {[regexp -indices {[[:blank:]]*<wpt.*/wpt>} $data range]} {
+  if {[regexp -indices {\s*<wpt.*/wpt>} $data range]} {
     set wpts [string range $data {*}$range]
     set data [string replace $data {*}$range]
   }
-  if {[regexp -indices {[[:blank:]]*<trk.*/trk>} $data range]} {
+  if {[regexp -indices {\s*<trk.*/trk>} $data range]} {
     set trks [string range $data {*}$range]
     set data [string replace $data {*}$range]
   }
@@ -1529,7 +1533,7 @@ proc brouter_query {lonlats trkname} {
   set num 0
   set lonlats {}
   set tail $wpts
-  set wpt \n
+  set wpt ""
   while {1} {
     set i [string first "<wpt" $tail]
     set head [string range $tail 0 $i-1]
@@ -1588,7 +1592,7 @@ proc brouter_query {lonlats trkname} {
   # flag = 16	... Starting point or endpoint, in QMS always visible
   set max [regexp -all {<trkpt .*?</trkpt>} $trks]
   set tail $trks
-  set trk \n
+  set trk ""
   while {1} {
     incr cnt
     set i [string first "<trkpt" $tail]
@@ -1638,7 +1642,6 @@ proc run_convert_job {} {
     thread::send -async $::wid $script
     vwait ::wdone
     unset ::wdone
-    gpx_files_tooltip
     update idletasks
     if {$::cancel} break
   }	

@@ -1,3 +1,9 @@
+2026-11-16
+
+- Updated README
+- Added scrollbars to list of input files
+- Minor optimizations
+
 2026-11-13
 
 - Show OS and version in output console
