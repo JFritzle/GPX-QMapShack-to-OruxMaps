@@ -1,3 +1,10 @@
+2026-11-20
+
+- Fixed some user interface issues:
+  o Scrollbars and combobox buttons now scale with font size
+  o Arrow down buttons and combobox buttons now match
+  o Prevent file/folder selections from opening twice while already open
+
 2026-11-16
 
 - Updated README
